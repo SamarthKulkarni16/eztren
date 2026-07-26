@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   // A client scoped to the caller's own session, so RLS enforces that only
   // a real participant in this battle can reach any of this.
   const supabase = createClient(url, anonKey, {
-    db: { schema: "one_alphabet" },
+    db: { schema: "eztren" },
     global: { headers: { Authorization: authHeader } },
   });
 

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Server not configured" }, { status: 500 });
   }
 
-  const supabase = createClient(url, anonKey, { db: { schema: "one_alphabet" } });
+  const supabase = createClient(url, anonKey, { db: { schema: "eztren" } });
   const { data: match } = await supabase
     .from("matches")
     .select("daily_room_name")

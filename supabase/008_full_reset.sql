@@ -4,7 +4,7 @@
 -- (Deleting auth users via the dashboard is safer than raw SQL — it
 -- correctly cleans up related session/identity rows too.)
 
-delete from one_alphabet.matches;
-delete from one_alphabet.signups;
-delete from one_alphabet.rank_history;
-delete from one_alphabet.players;
+delete from eztren.matches;
+delete from eztren.signups;
+delete from eztren.rank_history;
+delete from eztren.players;

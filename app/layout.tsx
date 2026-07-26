@@ -4,7 +4,7 @@ import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "One Alphabet | A Debate Sport",
+  title: "Eztren | A Debate Sport",
   description:
     "A global debate sport ranked by letters, not numbers. Climb from the lower alphabet leagues toward becoming A.",
 };

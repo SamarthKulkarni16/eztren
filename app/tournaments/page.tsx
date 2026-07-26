@@ -1,6 +1,6 @@
 import { getTournaments } from "@/lib/queries";
 
-export const metadata = { title: "Tournaments | One Alphabet" };
+export const metadata = { title: "Tournaments | Eztren" };
 export const dynamic = "force-dynamic";
 
 const statusColor: Record<string, string> = {

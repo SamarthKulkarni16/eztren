@@ -7,7 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 const GEMINI_MODEL = "gemini-3.5-flash";
 
 function buildPrompt(nameA: string, nameB: string, topic: string) {
-  return `You are an experienced, fair judge for One Alphabet, a debate sport. The sport's stated goal is not just to win, but to make people think "I never thought of it that way" — it values perspective, reasoning, communication, and respectful disagreement.
+  return `You are an experienced, fair judge for Eztren, a debate sport. The sport's stated goal is not just to win, but to make people think "I never thought of it that way" — it values perspective, reasoning, communication, and respectful disagreement.
 
 This was a free-flowing 10-minute debate on the topic: "${topic}"
 
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = createClient(url, anonKey, {
-    db: { schema: "one_alphabet" },
+    db: { schema: "eztren" },
     global: { headers: { Authorization: authHeader } },
   });
 

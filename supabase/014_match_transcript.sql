@@ -3,23 +3,23 @@
 -- only). So the compiled transcript gets copied onto the public matches
 -- row at archive time, same as topic/players/league already are.
 
-alter table one_alphabet.matches add column if not exists transcript text;
+alter table eztren.matches add column if not exists transcript text;
 
-create or replace function one_alphabet.complete_battle(battle_id uuid)
+create or replace function eztren.complete_battle(battle_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path = one_alphabet, public
+set search_path = eztren, public
 as $$
 declare
   b record;
   caller_player_id uuid;
   compiled_transcript text;
-  a_league one_alphabet.league_type;
+  a_league eztren.league_type;
 begin
-  select id into caller_player_id from one_alphabet.players where user_id = auth.uid();
+  select id into caller_player_id from eztren.players where user_id = auth.uid();
 
-  select * into b from one_alphabet.battles where id = battle_id;
+  select * into b from eztren.battles where id = battle_id;
 
   if not found then
     raise exception 'battle not found';
@@ -36,20 +36,20 @@ begin
   if b.format = 'text' then
     select string_agg(p.name || ': ' || t.content, E'\n' order by t.created_at)
     into compiled_transcript
-    from one_alphabet.battle_turns t
-    join one_alphabet.players p on p.id = t.player_id
+    from eztren.battle_turns t
+    join eztren.players p on p.id = t.player_id
     where t.battle_id = b.id;
   end if;
 
-  select league into a_league from one_alphabet.players where id = b.player_a_id;
+  select league into a_league from eztren.players where id = b.player_a_id;
 
-  update one_alphabet.battles
+  update eztren.battles
   set status = 'completed',
       ended_at = now(),
       transcript = coalesce(compiled_transcript, transcript)
   where id = b.id;
 
-  insert into one_alphabet.matches
+  insert into eztren.matches
     (topic, player_a_id, player_b_id, league, match_date, tags, transcript_url, video_url, transcript)
   values
     (coalesce(b.topic, 'Open Debate'), b.player_a_id, b.player_b_id, a_league, current_date,
@@ -57,4 +57,4 @@ begin
 end;
 $$;
 
-grant execute on function one_alphabet.complete_battle(uuid) to authenticated;
+grant execute on function eztren.complete_battle(uuid) to authenticated;

@@ -10,6 +10,6 @@ export const isSupabaseConfigured = Boolean(url && key);
 // which falls back to the seed data in lib/data.ts instead.
 export const supabase = isSupabaseConfigured
   ? createClient(url as string, key as string, {
-      db: { schema: "one_alphabet" },
+      db: { schema: "eztren" },
     })
   : null;

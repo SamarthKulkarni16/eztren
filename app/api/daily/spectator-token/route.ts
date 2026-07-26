@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   // Anon client — relies on the "public read live battles" policy from
   // 018_spectator_mode.sql, so this only ever succeeds for battles that
   // are actually live right now.
-  const supabase = createClient(url, anonKey, { db: { schema: "one_alphabet" } });
+  const supabase = createClient(url, anonKey, { db: { schema: "eztren" } });
 
   const { data: battle, error } = await supabase
     .from("battles")

@@ -6,23 +6,23 @@
 -- 2. The AI judge now writes a separate, longer "reasoning" in addition to
 --    the short public-facing summary.
 
-alter table one_alphabet.battles add column if not exists end_requested_by uuid
-  references one_alphabet.players(id);
+alter table eztren.battles add column if not exists end_requested_by uuid
+  references eztren.players(id);
 
-alter table one_alphabet.matches add column if not exists judge_reasoning text;
+alter table eztren.matches add column if not exists judge_reasoning text;
 
-create or replace function one_alphabet.request_end_battle(battle_id uuid)
+create or replace function eztren.request_end_battle(battle_id uuid)
 returns text
 language plpgsql
 security definer
-set search_path = one_alphabet, public
+set search_path = eztren, public
 as $$
 declare
   b record;
   caller_player_id uuid;
 begin
-  select id into caller_player_id from one_alphabet.players where user_id = auth.uid();
-  select * into b from one_alphabet.battles where id = battle_id;
+  select id into caller_player_id from eztren.players where user_id = auth.uid();
+  select * into b from eztren.battles where id = battle_id;
 
   if not found then
     raise exception 'battle not found';
@@ -35,7 +35,7 @@ begin
   end if;
 
   if b.end_requested_by is null then
-    update one_alphabet.battles set end_requested_by = caller_player_id where id = battle_id;
+    update eztren.battles set end_requested_by = caller_player_id where id = battle_id;
     return 'requested';
   end if;
 
@@ -44,39 +44,39 @@ begin
   end if;
 
   -- The other player already asked — this click is the agreement.
-  perform one_alphabet.complete_battle(battle_id);
-  update one_alphabet.battles set end_requested_by = null where id = battle_id;
+  perform eztren.complete_battle(battle_id);
+  update eztren.battles set end_requested_by = null where id = battle_id;
   return 'confirmed';
 end;
 $$;
 
-grant execute on function one_alphabet.request_end_battle(uuid) to authenticated;
+grant execute on function eztren.request_end_battle(uuid) to authenticated;
 
-create or replace function one_alphabet.cancel_end_request(battle_id uuid)
+create or replace function eztren.cancel_end_request(battle_id uuid)
 returns void
 language plpgsql
 security definer
-set search_path = one_alphabet, public
+set search_path = eztren, public
 as $$
 declare
   caller_player_id uuid;
 begin
-  select id into caller_player_id from one_alphabet.players where user_id = auth.uid();
+  select id into caller_player_id from eztren.players where user_id = auth.uid();
 
-  update one_alphabet.battles
+  update eztren.battles
   set end_requested_by = null
   where id = battle_id
     and (player_a_id = caller_player_id or player_b_id = caller_player_id);
 end;
 $$;
 
-grant execute on function one_alphabet.cancel_end_request(uuid) to authenticated;
+grant execute on function eztren.cancel_end_request(uuid) to authenticated;
 
 -- apply_match_result now also takes the fuller reasoning text — drop the
 -- old 3-arg signature first so it doesn't linger as a stale overload.
-drop function if exists one_alphabet.apply_match_result(uuid, uuid, text);
+drop function if exists eztren.apply_match_result(uuid, uuid, text);
 
-create or replace function one_alphabet.apply_match_result(
+create or replace function eztren.apply_match_result(
   match_id uuid,
   winner_player_id uuid,
   summary text,
@@ -85,18 +85,18 @@ create or replace function one_alphabet.apply_match_result(
 returns void
 language plpgsql
 security definer
-set search_path = one_alphabet, public
+set search_path = eztren, public
 as $$
 declare
   m record;
   loser_id uuid;
 begin
-  select * into m from one_alphabet.matches where id = match_id;
+  select * into m from eztren.matches where id = match_id;
   if not found then
     raise exception 'match not found';
   end if;
 
-  update one_alphabet.matches
+  update eztren.matches
   set winner_id = winner_player_id,
       ai_summary = summary,
       judge_reasoning = reasoning,
@@ -110,10 +110,10 @@ begin
       else m.player_a_id
     end;
 
-    update one_alphabet.players set wins = wins + 1 where id = winner_player_id;
-    update one_alphabet.players set losses = losses + 1 where id = loser_id;
+    update eztren.players set wins = wins + 1 where id = winner_player_id;
+    update eztren.players set losses = losses + 1 where id = loser_id;
   end if;
 end;
 $$;
 
-grant execute on function one_alphabet.apply_match_result(uuid, uuid, text, text) to authenticated;
+grant execute on function eztren.apply_match_result(uuid, uuid, text, text) to authenticated;

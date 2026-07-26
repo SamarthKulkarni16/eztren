@@ -5,15 +5,15 @@
 -- that. Participants keep their existing full-access policies from
 -- 012_live_battles.sql; these are additive permissive policies for anon.
 
-drop policy if exists "public read live battles" on one_alphabet.battles;
-create policy "public read live battles" on one_alphabet.battles
+drop policy if exists "public read live battles" on eztren.battles;
+create policy "public read live battles" on eztren.battles
   for select using (status = 'live');
 
-drop policy if exists "public read live turns" on one_alphabet.battle_turns;
-create policy "public read live turns" on one_alphabet.battle_turns
+drop policy if exists "public read live turns" on eztren.battle_turns;
+create policy "public read live turns" on eztren.battle_turns
   for select using (
-    battle_id in (select id from one_alphabet.battles where status = 'live')
+    battle_id in (select id from eztren.battles where status = 'live')
   );
 
-grant select on one_alphabet.battles to anon;
-grant select on one_alphabet.battle_turns to anon;
+grant select on eztren.battles to anon;
+grant select on eztren.battle_turns to anon;

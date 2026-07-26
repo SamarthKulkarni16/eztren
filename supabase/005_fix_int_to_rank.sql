@@ -1,7 +1,7 @@
 -- Fixes: "function chr(bigint) does not exist"
 -- chr() only accepts integer, but the rank math was done in bigint.
 
-create or replace function one_alphabet.int_to_rank(n bigint) returns text
+create or replace function eztren.int_to_rank(n bigint) returns text
 language plpgsql immutable as $$
 declare
   result text := '';

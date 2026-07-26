@@ -200,7 +200,7 @@ export function subscribeToIncomingChallenges(
       "postgres_changes",
       {
         event: "INSERT",
-        schema: "one_alphabet",
+        schema: "eztren",
         table: "battle_challenges",
         filter: `opponent_id=eq.${playerId}`,
       },
@@ -224,7 +224,7 @@ export function subscribeToOutgoingChallengeUpdates(
       "postgres_changes",
       {
         event: "UPDATE",
-        schema: "one_alphabet",
+        schema: "eztren",
         table: "battle_challenges",
         filter: `challenger_id=eq.${playerId}`,
       },
@@ -325,7 +325,7 @@ export function subscribeToLiveBattles(onChange: () => void): () => void {
     .channel("live-battles")
     .on(
       "postgres_changes",
-      { event: "*", schema: "one_alphabet", table: "battles" },
+      { event: "*", schema: "eztren", table: "battles" },
       () => onChange()
     )
     .subscribe();
@@ -345,7 +345,7 @@ export function subscribeToBattle(
       "postgres_changes",
       {
         event: "UPDATE",
-        schema: "one_alphabet",
+        schema: "eztren",
         table: "battles",
         filter: `id=eq.${battleId}`,
       },
@@ -393,7 +393,7 @@ export function subscribeToTurns(
       "postgres_changes",
       {
         event: "INSERT",
-        schema: "one_alphabet",
+        schema: "eztren",
         table: "battle_turns",
         filter: `battle_id=eq.${battleId}`,
       },

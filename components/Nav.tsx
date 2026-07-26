@@ -36,7 +36,7 @@ export default function Nav() {
             href="/"
             className="font-display text-lg tracking-tight text-bone"
           >
-            One Alphabet
+            Eztren
           </Link>
           <nav className="hidden md:flex items-center gap-8 font-data text-[13px] uppercase tracking-wider text-steel">
             {links.map((l) => (

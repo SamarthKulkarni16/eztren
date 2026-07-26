@@ -2,7 +2,7 @@
 -- Adds automatic "lowest current rank + 1" assignment for new players.
 
 -- ── Rank <-> integer, using the same A,B,...Z,AA,AB,... sequence shown on the site ──
-create or replace function one_alphabet.rank_to_int(r text) returns bigint
+create or replace function eztren.rank_to_int(r text) returns bigint
 language plpgsql immutable as $$
 declare
   result bigint := 0;
@@ -14,7 +14,7 @@ begin
 end;
 $$;
 
-create or replace function one_alphabet.int_to_rank(n bigint) returns text
+create or replace function eztren.int_to_rank(n bigint) returns text
 language plpgsql immutable as $$
 declare
   result text := '';
@@ -29,24 +29,24 @@ begin
 end;
 $$;
 
-create or replace function one_alphabet.next_rank() returns text
+create or replace function eztren.next_rank() returns text
 language plpgsql as $$
 declare
   max_int bigint;
 begin
-  select coalesce(max(one_alphabet.rank_to_int(rank)), 0) into max_int from one_alphabet.players;
-  return one_alphabet.int_to_rank(max_int + 1);
+  select coalesce(max(eztren.rank_to_int(rank)), 0) into max_int from eztren.players;
+  return eztren.int_to_rank(max_int + 1);
 end;
 $$;
 
 -- ── Auto-assign rank + league on insert whenever rank isn't explicitly given ──
-alter table one_alphabet.players alter column rank drop not null;
+alter table eztren.players alter column rank drop not null;
 
-create or replace function one_alphabet.assign_next_rank() returns trigger
+create or replace function eztren.assign_next_rank() returns trigger
 language plpgsql as $$
 begin
   if new.rank is null then
-    new.rank := one_alphabet.next_rank();
+    new.rank := eztren.next_rank();
   end if;
   if new.league is null then
     new.league := 'Alphabet League';
@@ -55,31 +55,31 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_assign_rank on one_alphabet.players;
+drop trigger if exists trg_assign_rank on eztren.players;
 create trigger trg_assign_rank
-  before insert on one_alphabet.players
-  for each row execute function one_alphabet.assign_next_rank();
+  before insert on eztren.players
+  for each row execute function eztren.assign_next_rank();
 
 -- ── Public registration entry point ──
 -- The client can only ever pass name + country. Rank, league, wins,
 -- losses, judged_matches are always set by the database, never the caller
 -- — this is what stops someone from crafting a raw insert that claims
 -- rank 'A' or a fake win count.
-create or replace function one_alphabet.register_player(p_name text, p_country text)
-returns one_alphabet.players
+create or replace function eztren.register_player(p_name text, p_country text)
+returns eztren.players
 language plpgsql
 security definer
-set search_path = one_alphabet
+set search_path = eztren
 as $$
 declare
-  new_row one_alphabet.players;
+  new_row eztren.players;
 begin
-  insert into one_alphabet.players (name, country)
+  insert into eztren.players (name, country)
   values (p_name, p_country)
   returning * into new_row;
   return new_row;
 end;
 $$;
 
-revoke all on function one_alphabet.register_player(text, text) from public;
-grant execute on function one_alphabet.register_player(text, text) to anon, authenticated;
+revoke all on function eztren.register_player(text, text) from public;
+grant execute on function eztren.register_player(text, text) to anon, authenticated;

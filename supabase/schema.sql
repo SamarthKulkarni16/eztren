@@ -1,20 +1,20 @@
--- One Alphabet — Pass 2 schema
+-- Eztren — Pass 2 schema
 -- Reuses your existing Supabase project (same one as Flow Timer / Minima /
 -- Daily Logs / Notes App). Everything lives in its own schema so it can't
 -- collide with those apps' tables.
 
-create schema if not exists one_alphabet;
+create schema if not exists eztren;
 
 create extension if not exists "pgcrypto";
 
-create type one_alphabet.league_type as enum ('Alphabet League', 'Two Alphabet League', 'One Alphabet League');
+create type eztren.league_type as enum ('Alphabet League', 'Two Alphabet League', 'One Alphabet League');
 
 -- ── Players ──
-create table one_alphabet.players (
+create table eztren.players (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   rank text not null,              -- 'A', 'B', ... 'AA', 'AB', ...
-  league one_alphabet.league_type not null default 'Alphabet League',
+  league eztren.league_type not null default 'Alphabet League',
   judged_matches int not null default 0,
   wins int not null default 0,
   losses int not null default 0,
@@ -26,10 +26,10 @@ create table one_alphabet.players (
 );
 
 create unique index players_user_id_unique
-  on one_alphabet.players (user_id) where user_id is not null;
+  on eztren.players (user_id) where user_id is not null;
 
 -- ── Tournaments ──
-create table one_alphabet.tournaments (
+create table eztren.tournaments (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   type text not null check (type in ('promotion', 'flagship', 'emergency')),
@@ -40,16 +40,16 @@ create table one_alphabet.tournaments (
 );
 
 -- ── Matches ──
-create table one_alphabet.matches (
+create table eztren.matches (
   id uuid primary key default gen_random_uuid(),
   topic text not null,
-  player_a_id uuid references one_alphabet.players(id),
-  player_b_id uuid references one_alphabet.players(id),
-  judge_id uuid references one_alphabet.players(id),
-  referee_id uuid references one_alphabet.players(id),
-  tournament_id uuid references one_alphabet.tournaments(id),
-  league one_alphabet.league_type not null,
-  winner_id uuid references one_alphabet.players(id),
+  player_a_id uuid references eztren.players(id),
+  player_b_id uuid references eztren.players(id),
+  judge_id uuid references eztren.players(id),
+  referee_id uuid references eztren.players(id),
+  tournament_id uuid references eztren.tournaments(id),
+  league eztren.league_type not null,
+  winner_id uuid references eztren.players(id),
   match_date date not null default current_date,
   tags text[] not null default '{}',
   ai_summary text,
@@ -58,7 +58,7 @@ create table one_alphabet.matches (
 );
 
 -- ── Sign-ups (from the Join page) ──
-create table one_alphabet.signups (
+create table eztren.signups (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   email text not null,
@@ -71,31 +71,31 @@ create table one_alphabet.signups (
 );
 
 -- ── Row Level Security ──
-alter table one_alphabet.players enable row level security;
-alter table one_alphabet.tournaments enable row level security;
-alter table one_alphabet.matches enable row level security;
-alter table one_alphabet.signups enable row level security;
+alter table eztren.players enable row level security;
+alter table eztren.tournaments enable row level security;
+alter table eztren.matches enable row level security;
+alter table eztren.signups enable row level security;
 
-create policy "public read players" on one_alphabet.players for select using (true);
-create policy "public read tournaments" on one_alphabet.tournaments for select using (true);
-create policy "public read matches" on one_alphabet.matches for select using (true);
+create policy "public read players" on eztren.players for select using (true);
+create policy "public read tournaments" on eztren.tournaments for select using (true);
+create policy "public read matches" on eztren.matches for select using (true);
 
 -- ── Expose this schema to the API ──
 -- The anon/authenticated roles need USAGE on the schema itself, plus the
--- table-level grants below, on top of adding "one_alphabet" under
+-- table-level grants below, on top of adding "eztren" under
 -- Project Settings → API → Data API Settings → Exposed schemas (dashboard
 -- only, can't be done from SQL).
-grant usage on schema one_alphabet to anon, authenticated;
-grant select on one_alphabet.players, one_alphabet.tournaments, one_alphabet.matches to anon, authenticated;
+grant usage on schema eztren to anon, authenticated;
+grant select on eztren.players, eztren.tournaments, eztren.matches to anon, authenticated;
 
 -- ── Seed data (same as the mock data currently on the site) ──
-insert into one_alphabet.tournaments (name, type, league, status, dates, description) values
+insert into eztren.tournaments (name, type, league, status, dates, description) values
   ('The Unknown Road to One Alphabet', 'promotion', 'Two Alphabet League', 'active', 'Rolling — online', 'Two Alphabet players challenge One Alphabet players for promotion into the elite league. Currently held online; physical qualification arrives once infrastructure allows it.'),
   ('Twilight Race to Get the Ace', 'flagship', 'One Alphabet League', 'upcoming', 'January 2027', 'One Alphabet League only. Players defend their standing and race to become A, the single highest-ranked player in the sport.'),
   ('Emergency League: AI Regulation', 'emergency', 'Cross-League', 'active', 'Opened July 2026', 'A temporary league activated to hold high-quality debate on the unfolding AI regulation landscape while it''s still being written.'),
   ('Emergency League: America–Iran', 'emergency', 'Cross-League', 'completed', 'Closed February 2026', 'Archived. Debates from this league remain searchable and form part of the permanent record.');
 
-insert into one_alphabet.players (name, rank, league, judged_matches, wins, losses, country, bio) values
+insert into eztren.players (name, rank, league, judged_matches, wins, losses, country, bio) values
   ('Ines Adeyemi', 'A', 'One Alphabet League', 34, 41, 6, 'Nigeria', 'Reigning Ace. Known for reframing economic debates around lived experience rather than statistics.'),
   ('Kenji Watanabe', 'B', 'One Alphabet League', 22, 37, 9, 'Japan', null),
   ('Priya Menon', 'C', 'One Alphabet League', 18, 29, 11, 'India', null),
@@ -109,7 +109,7 @@ insert into one_alphabet.players (name, rank, league, judged_matches, wins, loss
 -- standalone version — this is folded in here so a fresh setup gets it
 -- in one pass) ──
 
-create or replace function one_alphabet.rank_to_int(r text) returns bigint
+create or replace function eztren.rank_to_int(r text) returns bigint
 language plpgsql immutable as $$
 declare
   result bigint := 0;
@@ -121,7 +121,7 @@ begin
 end;
 $$;
 
-create or replace function one_alphabet.int_to_rank(n bigint) returns text
+create or replace function eztren.int_to_rank(n bigint) returns text
 language plpgsql immutable as $$
 declare
   result text := '';
@@ -136,24 +136,24 @@ begin
 end;
 $$;
 
-create or replace function one_alphabet.next_rank() returns text
+create or replace function eztren.next_rank() returns text
 language plpgsql as $$
 declare
   max_int bigint;
 begin
-  select coalesce(max(one_alphabet.rank_to_int(rank)), 0) into max_int from one_alphabet.players;
-  return one_alphabet.int_to_rank(max_int + 1);
+  select coalesce(max(eztren.rank_to_int(rank)), 0) into max_int from eztren.players;
+  return eztren.int_to_rank(max_int + 1);
 end;
 $$;
 
-alter table one_alphabet.players alter column rank drop not null;
+alter table eztren.players alter column rank drop not null;
 
-create or replace function one_alphabet.assign_next_rank() returns trigger
+create or replace function eztren.assign_next_rank() returns trigger
 language plpgsql as $$
 begin
   if tg_op = 'INSERT' then
     if new.rank is null then
-      new.rank := one_alphabet.next_rank();
+      new.rank := eztren.next_rank();
     end if;
     new.rank_since := now();
   elsif tg_op = 'UPDATE' then
@@ -166,35 +166,35 @@ begin
     when length(new.rank) = 1 then 'One Alphabet League'
     when length(new.rank) = 2 then 'Two Alphabet League'
     else 'Alphabet League'
-  end)::one_alphabet.league_type;
+  end)::eztren.league_type;
 
   return new;
 end;
 $$;
 
 create trigger trg_assign_rank
-  before insert or update of rank on one_alphabet.players
-  for each row execute function one_alphabet.assign_next_rank();
+  before insert or update of rank on eztren.players
+  for each row execute function eztren.assign_next_rank();
 
 -- Registration requires a verified Supabase Auth session (magic link).
 -- The client can only ever pass name, country, role — rank, league,
 -- wins/losses, and the verified email are always server-controlled.
 -- Idempotent: calling it twice for the same signed-in user just returns
 -- their existing row instead of creating a second one.
-create or replace function one_alphabet.register_player(
+create or replace function eztren.register_player(
   p_name text,
   p_country text,
   p_role text default 'player',
   p_age int default null,
   p_gender text default null
 )
-returns one_alphabet.players
+returns eztren.players
 language plpgsql
 security definer
-set search_path = one_alphabet
+set search_path = eztren
 as $$
 declare
-  new_row one_alphabet.players;
+  new_row eztren.players;
   uid uuid := auth.uid();
   verified_email text := (auth.jwt() ->> 'email');
 begin
@@ -202,57 +202,57 @@ begin
     raise exception 'Must be signed in to register';
   end if;
 
-  select * into new_row from one_alphabet.players where user_id = uid;
+  select * into new_row from eztren.players where user_id = uid;
   if found then
     return new_row;
   end if;
 
-  insert into one_alphabet.players (name, country, user_id)
+  insert into eztren.players (name, country, user_id)
   values (p_name, p_country, uid)
   returning * into new_row;
 
-  insert into one_alphabet.signups (name, email, role, country, status, created_at, age, gender)
+  insert into eztren.signups (name, email, role, country, status, created_at, age, gender)
   values (p_name, coalesce(verified_email, 'unknown'), p_role, p_country, 'accepted', now(), p_age, p_gender);
 
   return new_row;
 end;
 $$;
 
-revoke all on function one_alphabet.register_player(text, text, text, int, text) from public, anon;
-grant execute on function one_alphabet.register_player(text, text, text, int, text) to authenticated;
+revoke all on function eztren.register_player(text, text, text, int, text) from public, anon;
+grant execute on function eztren.register_player(text, text, text, int, text) to authenticated;
 
 -- ── Rank history (see 011_rank_history.sql for the standalone version —
 -- folded in here so a fresh setup gets it in one pass) ──
 
-create table one_alphabet.rank_history (
+create table eztren.rank_history (
   id uuid primary key default gen_random_uuid(),
-  player_id uuid not null references one_alphabet.players(id) on delete cascade,
+  player_id uuid not null references eztren.players(id) on delete cascade,
   rank text not null,
-  league one_alphabet.league_type not null,
+  league eztren.league_type not null,
   started_at timestamptz not null,
   ended_at timestamptz
 );
 
-create index rank_history_player_idx on one_alphabet.rank_history (player_id);
-create index rank_history_rank_idx on one_alphabet.rank_history (rank);
+create index rank_history_player_idx on eztren.rank_history (player_id);
+create index rank_history_rank_idx on eztren.rank_history (rank);
 
-alter table one_alphabet.rank_history enable row level security;
-create policy "public read rank history" on one_alphabet.rank_history for select using (true);
-grant select on one_alphabet.rank_history to anon, authenticated;
+alter table eztren.rank_history enable row level security;
+create policy "public read rank history" on eztren.rank_history for select using (true);
+grant select on eztren.rank_history to anon, authenticated;
 
-create or replace function one_alphabet.record_rank_history() returns trigger
+create or replace function eztren.record_rank_history() returns trigger
 language plpgsql as $$
 begin
   if tg_op = 'INSERT' then
-    insert into one_alphabet.rank_history (player_id, rank, league, started_at)
+    insert into eztren.rank_history (player_id, rank, league, started_at)
     values (new.id, new.rank, new.league, new.rank_since);
   elsif tg_op = 'UPDATE' then
     if new.rank is distinct from old.rank then
-      update one_alphabet.rank_history
+      update eztren.rank_history
       set ended_at = new.rank_since
       where player_id = new.id and ended_at is null;
 
-      insert into one_alphabet.rank_history (player_id, rank, league, started_at)
+      insert into eztren.rank_history (player_id, rank, league, started_at)
       values (new.id, new.rank, new.league, new.rank_since);
     end if;
   end if;
@@ -261,5 +261,5 @@ end;
 $$;
 
 create trigger trg_record_rank_history
-  after insert or update of rank on one_alphabet.players
-  for each row execute function one_alphabet.record_rank_history();
+  after insert or update of rank on eztren.players
+  for each row execute function eztren.record_rank_history();
