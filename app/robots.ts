@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/battle', '/api'],
+      disallow: ['/api'],
     },
     sitemap: 'https://eztren.xyz/sitemap.xml',
   }
