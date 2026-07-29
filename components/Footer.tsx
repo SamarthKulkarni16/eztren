@@ -23,6 +23,12 @@ export default function Footer() {
             >
               GitHub
             </a>
+            <Link
+              href="/html-sitemap"
+              className="font-data text-[12px] uppercase tracking-wider text-steel hover:text-signal transition-colors"
+            >
+              Sitemap
+            </Link>
           </div>
         </div>
         <p className="font-data text-[12px] text-steel max-w-md sm:text-right">
