@@ -7,6 +7,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: base, lastModified: now, priority: 1 },
     { url: `${base}/rankings`, lastModified: now, priority: 0.9 },
+    { url: `${base}/join`, lastModified: now, priority: 0.9 },
+    { url: `${base}/battle`, lastModified: now, priority: 0.9 },
     { url: `${base}/players`, lastModified: now, priority: 0.8 },
     { url: `${base}/tournaments`, lastModified: now, priority: 0.8 },
     { url: `${base}/matches`, lastModified: now, priority: 0.7 },
@@ -14,6 +16,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/archive`, lastModified: now, priority: 0.6 },
     { url: `${base}/history`, lastModified: now, priority: 0.6 },
     { url: `${base}/constitution`, lastModified: now, priority: 0.5 },
-    { url: `${base}/join`, lastModified: now, priority: 0.9 },
   ]
 }
