@@ -6,6 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     { url: base, lastModified: now, priority: 1 },
+    { url: `${base}/about`, lastModified: now, priority: 0.9 },
     { url: `${base}/rankings`, lastModified: now, priority: 0.9 },
     { url: `${base}/join`, lastModified: now, priority: 0.9 },
     { url: `${base}/battle`, lastModified: now, priority: 0.9 },
