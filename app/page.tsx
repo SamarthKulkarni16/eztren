@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import AlphabetLadder from "@/components/AlphabetLadder";
 import VSCard from "@/components/VSCard";
+import JoinCta from "@/components/JoinCta";
 import { getMatches, getTournaments, getPlayers, getPlayerLookup } from "@/lib/queries";
 import { getLiveBattles } from "@/lib/battle";
 
@@ -37,12 +38,7 @@ export default async function Home() {
             <span className="text-signal font-medium">A</span>.
           </p>
           <div className="mt-10 flex flex-wrap items-center gap-4">
-            <Link
-              href="/join"
-              className="font-data text-[13px] uppercase tracking-wider bg-bone text-void px-6 py-3 hover:bg-signal transition-colors"
-            >
-              Join the League
-            </Link>
+            <JoinCta />
             <Link
               href="/constitution"
               className="font-data text-[13px] uppercase tracking-wider border border-bone px-6 py-3 hover:border-signal hover:text-signal transition-colors"
