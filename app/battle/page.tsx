@@ -39,6 +39,7 @@ export default function BattlePage() {
   const [outgoing, setOutgoing] = useState<BattleChallenge[]>([]);
   const [challengeMessage, setChallengeMessage] = useState("");
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [sendingTo, setSendingTo] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
@@ -126,10 +127,12 @@ export default function BattlePage() {
   }
 
   async function handleChallenge(opponentId: string) {
-    if (!profile) return;
+    if (!profile || sendingTo) return;
+    setSendingTo(opponentId);
     setChallengeMessage("");
     const res = await sendChallenge(profile.id, opponentId, format, isPrivate);
     setChallengeMessage(res.ok ? "Challenge sent." : res.message ?? "Could not send challenge.");
+    setSendingTo(null);
     refreshChallenges();
   }
 
@@ -327,16 +330,25 @@ export default function BattlePage() {
         )}
         {search && (
           <div className="space-y-px bg-steel-line border border-steel-line max-h-64 overflow-y-auto">
-            {filteredPlayers.slice(0, 8).map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handleChallenge(p.id)}
-                className="w-full bg-void p-4 flex items-center justify-between hover:bg-steel-line/20 transition-colors text-left"
-              >
-                <span className="font-body text-[15px]">{p.name}</span>
-                <span className="font-data text-[12px] text-steel">{p.rank}</span>
-              </button>
-            ))}
+            {filteredPlayers.slice(0, 8).map((p) => {
+              const alreadyPending = outgoing.some(
+                (c) => c.opponentId === p.id && c.format === format && c.status === "pending"
+              );
+              const sending = sendingTo === p.id;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => handleChallenge(p.id)}
+                  disabled={alreadyPending || sending}
+                  className="w-full bg-void p-4 flex items-center justify-between hover:bg-steel-line/20 transition-colors text-left disabled:hover:bg-void disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <span className="font-body text-[15px]">{p.name}</span>
+                  <span className="font-data text-[12px] text-steel">
+                    {alreadyPending ? "Pending" : sending ? "Sending\u2026" : p.rank}
+                  </span>
+                </button>
+              );
+            })}
             {filteredPlayers.length === 0 && (
               <p className="bg-void p-4 text-steel text-[14px]">No players found.</p>
             )}

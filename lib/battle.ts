@@ -157,7 +157,15 @@ export async function sendChallenge(
   const { error } = await supabase
     .from("battle_challenges")
     .insert({ challenger_id: challengerId, opponent_id: opponentId, format, is_private: isPrivate });
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    // 23505 = unique_violation — the DB-level guard against sending the
+    // same player a second pending challenge (see
+    // 023_prevent_duplicate_challenges.sql) caught this one.
+    if (error.code === "23505") {
+      return { ok: false, message: "You've already sent this player a challenge." };
+    }
+    return { ok: false, message: error.message };
+  }
   return { ok: true };
 }
 
