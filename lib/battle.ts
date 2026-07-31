@@ -68,16 +68,21 @@ export async function joinQueue(
   playerId: string,
   format: BattleFormat,
   isPrivate: boolean = false
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<{ ok: boolean; message?: string; since?: string }> {
   if (!isSupabaseConfigured || !supabase) return { ok: false, message: "Not connected." };
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("battle_queue")
     .upsert(
       { player_id: playerId, format, is_private: isPrivate },
       { onConflict: "player_id,format" }
-    );
+    )
+    .select("joined_at")
+    .single();
   if (error) return { ok: false, message: error.message };
-  return { ok: true };
+  // joined_at is always set server-side by a trigger (see
+  // 022_fix_queue_clock_skew.sql) — never the client's own clock — so it's
+  // safe to hand straight back as the anchor for pollForMatch.
+  return { ok: true, since: data?.joined_at };
 }
 
 export async function leaveQueue(

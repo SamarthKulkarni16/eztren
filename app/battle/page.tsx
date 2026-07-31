@@ -97,12 +97,17 @@ export default function BattlePage() {
   async function handleJoinQueue() {
     if (!profile) return;
     setQueueError(null);
-    const since = new Date().toISOString();
     const res = await joinQueue(profile.id, format, isPrivate);
     if (!res.ok) {
       setQueueError(res.message ?? "Could not join the queue. Try again.");
       return;
     }
+    // Use the database's own timestamp for the match poll's anchor, not the
+    // client's local clock — a device clock running even a couple seconds
+    // fast used to make a player's own match invisible to their poll
+    // forever. Fall back to local time only if the server somehow didn't
+    // hand one back.
+    const since = res.since ?? new Date().toISOString();
     setInQueue(true);
     setQueueSince(since);
     const stop = pollForMatch(profile.id, format, since, (battle) => {
