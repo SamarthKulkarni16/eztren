@@ -12,17 +12,29 @@ function shuffle<T>(items: T[]): T[] {
   return arr;
 }
 
+// Cuts to the nearest whole word so a long item doesn't just get chopped
+// mid-word when it's shown somewhere with limited width (e.g. a single-line
+// input placeholder, which never wraps and would otherwise clip silently).
+function truncate(text: string, maxLength?: number): string {
+  if (!maxLength || text.length <= maxLength) return text;
+  const cut = text.slice(0, maxLength);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd() + "\u2026";
+}
+
 // Cycles through `items` in a freshly randomized order, advancing one at a
 // time on `intervalMs`. Pauses entirely while `active` is false — e.g. once
 // the field has real content, rotating the placeholder underneath it would
 // be pointless (placeholders don't show over typed text) and wasteful.
 // Reshuffles and restarts once every item in the current pass has been
 // shown, so it never repeats a topic back-to-back and never falls into a
-// fixed cycle a user could predict.
+// fixed cycle a user could predict. Pass `maxLength` to truncate long items
+// (with a trailing ellipsis) so they never overflow a single-line field.
 export function useRotatingPlaceholder(
   items: string[],
   intervalMs: number = 3200,
-  active: boolean = true
+  active: boolean = true,
+  maxLength?: number
 ): string {
   const orderRef = useRef<string[]>([]);
   const indexRef = useRef(0);
@@ -48,5 +60,6 @@ export function useRotatingPlaceholder(
     return () => clearInterval(id);
   }, [items, intervalMs, active]);
 
-  return current;
+  return truncate(current, maxLength);
 }
+

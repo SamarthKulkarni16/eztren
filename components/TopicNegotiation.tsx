@@ -36,8 +36,12 @@ export default function TopicNegotiation({
   const [timedOut, setTimedOut] = useState(false);
   const timeoutFiredRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Captured once, at first render, so the countdown always starts at a
+  // full 60 regardless of how long the route/data fetch took to land here.
+  const startRef = useRef(Date.now());
 
-  const rotatingTopic = useRotatingPlaceholder(DEBATE_TOPICS, 3200, !battle.topic);
+  const rotatingTopic = useRotatingPlaceholder(DEBATE_TOPICS, 3200, !battle.topic, 52);
 
   const refresh = () => {
     getTopicProposals(battle.id).then(setProposals);
@@ -55,15 +59,17 @@ export default function TopicNegotiation({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [proposals]);
 
-  // 60-second window measured from when the battle was created. Whichever
+  // 60-second window measured from the moment this negotiation screen
+  // actually mounted on this player's device (not battle.createdAt, which
+  // could already be several seconds old by the time the route/data fetch
+  // finishes — that was making the timer visibly start below 60). Whichever
   // client's clock hits zero first assigns a random topic — assign_random_topic()
   // only writes if battle.topic is still null, so it's harmless if both
   // players' timers land within moments of each other.
   useEffect(() => {
     if (battle.topic) return;
-    const createdAt = new Date(battle.createdAt).getTime();
     const tick = () => {
-      const elapsed = Math.floor((Date.now() - createdAt) / 1000);
+      const elapsed = Math.floor((Date.now() - startRef.current) / 1000);
       const remaining = NEGOTIATION_SECONDS - elapsed;
       setSecondsLeft(remaining);
       if (remaining <= 0 && !timeoutFiredRef.current) {
@@ -76,7 +82,17 @@ export default function TopicNegotiation({
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [battle.id, battle.createdAt, battle.topic]);
+  }, [battle.id, battle.topic]);
+
+  // Best-effort autofocus: puts the cursor straight in the box on desktop,
+  // and on mobile most browsers will pop the keyboard too — though some
+  // (notably iOS Safari) block auto-opening the keyboard without a direct
+  // tap, which is a platform restriction, not something we can override.
+  useEffect(() => {
+    if (battle.topic) return;
+    const id = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [battle.topic]);
 
   async function handlePropose() {
     const topic = draft.trim();
@@ -186,6 +202,7 @@ export default function TopicNegotiation({
 
       <div className="flex gap-3">
         <input
+          ref={inputRef}
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -194,7 +211,9 @@ export default function TopicNegotiation({
           }}
           placeholder={rotatingTopic}
           disabled={sending || timedOut}
-          className="flex-1 bg-transparent border-b border-steel-line py-2 focus:border-signal outline-none text-[15px] disabled:opacity-50"
+          autoFocus
+          enterKeyHint="send"
+          className="flex-1 bg-transparent border-b border-steel-line py-2 focus:border-signal outline-none text-[15px] disabled:opacity-50 placeholder:text-steel placeholder:italic placeholder:opacity-60"
         />
         <button
           onClick={handlePropose}
