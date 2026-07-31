@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getTurns, sendTurn, subscribeToTurns, endBattle } from "@/lib/battle";
+import { getTurns, sendTurn, subscribeToTurns, endBattle, createTypingChannel } from "@/lib/battle";
 import { Battle, BattleTurn, Player } from "@/lib/types";
 import EndBattleControl from "@/components/EndBattleControl";
 
@@ -24,20 +24,44 @@ export default function TextBattle({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
+  const [opponentTyping, setOpponentTyping] = useState(false);
+  const [typingDotCount, setTypingDotCount] = useState(1);
   const endedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const typingChannelRef = useRef<ReturnType<typeof createTypingChannel> | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef(0);
 
   useEffect(() => {
     getTurns(battle.id).then(setTurns);
     const unsub = subscribeToTurns(battle.id, (turn) => {
       setTurns((prev) => (prev.some((t) => t.id === turn.id) ? prev : [...prev, turn]));
+      if (turn.playerId !== profile.id) {
+        setOpponentTyping(false);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      }
     });
     return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [battle.id]);
 
   useEffect(() => {
+    const ch = createTypingChannel(battle.id, (playerId) => {
+      if (playerId === profile.id) return;
+      setOpponentTyping(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => setOpponentTyping(false), 3000);
+    });
+    typingChannelRef.current = ch;
+    return () => {
+      ch.unsubscribe();
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [battle.id, profile.id]);
+
+  useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [turns]);
+  }, [turns, opponentTyping]);
 
   // Countdown from battle.startedAt + duration_seconds. Whichever client's
   // clock hits zero first calls endBattle — complete_battle() is a no-op if
@@ -58,6 +82,24 @@ export default function TextBattle({
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [battle.startedAt, battle.durationSeconds, battle.id]);
+
+  function handleDraftChange(value: string) {
+    setDraft(value);
+    const now = Date.now();
+    if (value.trim() && now - lastTypingSentRef.current > 1200) {
+      lastTypingSentRef.current = now;
+      typingChannelRef.current?.notifyTyping(profile.id);
+    }
+  }
+
+  useEffect(() => {
+    if (!opponentTyping) return;
+    setTypingDotCount(1);
+    const interval = setInterval(() => {
+      setTypingDotCount((d) => (d % 3) + 1);
+    }, 400);
+    return () => clearInterval(interval);
+  }, [opponentTyping]);
 
   async function handleSend() {
     const content = draft.trim();
@@ -114,12 +156,24 @@ export default function TextBattle({
             </div>
           );
         })}
+        {opponentTyping && (
+          <div className="text-left">
+            <p className="font-data text-[11px] uppercase tracking-wider text-steel mb-1">
+              {opponent?.name ?? "Opponent"}
+            </p>
+            <p className="inline-block text-left text-[15px] leading-relaxed px-4 py-2 bg-steel-line/20 text-steel">
+              <span className="inline-block w-[1.5em] text-left">
+                {".".repeat(typingDotCount)}
+              </span>
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3 mb-6">
         <textarea
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => handleDraftChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();

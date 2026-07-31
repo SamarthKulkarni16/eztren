@@ -6,10 +6,26 @@ import { createClient } from "@supabase/supabase-js";
 
 const GEMINI_MODEL = "gemini-3.5-flash";
 
-function buildPrompt(nameA: string, nameB: string, topic: string) {
+function buildPrompt(
+  nameA: string,
+  nameB: string,
+  topic: string,
+  context: {
+    intendedMinutes: number;
+    actualMinutes: number | null;
+    endedEarly: boolean;
+    format: "text" | "audio";
+  }
+) {
+  const durationLine = context.actualMinutes === null
+    ? `This was a free-flowing debate on the topic: "${topic}", scheduled for up to ${context.intendedMinutes} minutes.`
+    : context.endedEarly
+    ? `This was a free-flowing debate on the topic: "${topic}". It was scheduled for up to ${context.intendedMinutes} minutes but both players mutually agreed to end it early, after about ${context.actualMinutes} minute${context.actualMinutes === 1 ? "" : "s"}. Judge only on the substance of what was actually said — do not penalize either side for the debate being shorter than scheduled, and do not treat the early end itself as a sign either side "gave up" or "lost."`
+    : `This was a free-flowing debate on the topic: "${topic}", which ran the full ${context.intendedMinutes} minutes.`;
+
   return `You are an experienced, fair judge for Eztren, a debate sport. The sport's stated goal is not just to win, but to make people think "I never thought of it that way" — it values perspective, reasoning, communication, and respectful disagreement.
 
-This was a free-flowing 10-minute debate on the topic: "${topic}"
+${durationLine}
 
 The two debaters are:
 - Player A: ${nameA}
@@ -175,7 +191,40 @@ export async function POST(req: NextRequest) {
     .eq("id", match.player_b_id)
     .maybeSingle();
 
-  const prompt = buildPrompt(playerA?.name ?? "Player A", playerB?.name ?? "Player B", match.topic);
+  // Pull the real scheduled vs. actual duration off the underlying battle
+  // row (matches.battle_id) so the judge knows whether this ended early —
+  // otherwise a battle mutually ended after 2 minutes would get judged
+  // against a hardcoded "10-minute debate" framing that no longer matched
+  // what actually happened.
+  let intendedMinutes = 10;
+  let actualMinutes: number | null = null;
+  let endedEarly = false;
+  if (match.battle_id) {
+    const { data: b } = await supabase
+      .from("battles")
+      .select("duration_seconds, started_at, ended_at")
+      .eq("id", match.battle_id)
+      .maybeSingle();
+    if (b) {
+      intendedMinutes = Math.round((b.duration_seconds ?? 600) / 60);
+      if (b.started_at && b.ended_at) {
+        const actualSeconds =
+          (new Date(b.ended_at).getTime() - new Date(b.started_at).getTime()) / 1000;
+        actualMinutes = Math.max(1, Math.round(actualSeconds / 60));
+        // 15s grace for the usual gap between the timer hitting zero and
+        // the completion call landing — anything beyond that is a genuine
+        // early end, not just network/processing lag.
+        endedEarly = actualSeconds < (b.duration_seconds ?? 600) - 15;
+      }
+    }
+  }
+
+  const prompt = buildPrompt(playerA?.name ?? "Player A", playerB?.name ?? "Player B", match.topic, {
+    intendedMinutes,
+    actualMinutes,
+    endedEarly,
+    format: isAudio ? "audio" : "text",
+  });
 
   try {
     const parts: any[] = [{ text: prompt }];

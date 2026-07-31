@@ -467,6 +467,31 @@ export async function sendTurn(
   return { ok: true };
 }
 
+// Lightweight typing indicator — broadcast only, no table, nothing
+// persisted. Each side pings the channel while typing; the receiver treats
+// silence for a few seconds as "stopped typing" rather than needing an
+// explicit stop event.
+export function createTypingChannel(
+  battleId: string,
+  onTyping: (playerId: string) => void
+): { notifyTyping: (playerId: string) => void; unsubscribe: () => void } {
+  if (!supabase) return { notifyTyping: () => {}, unsubscribe: () => {} };
+  const channel = supabase
+    .channel(`typing-${battleId}`, { config: { broadcast: { self: false } } })
+    .on("broadcast", { event: "typing" }, ({ payload }) => {
+      if (payload?.playerId) onTyping(payload.playerId);
+    })
+    .subscribe();
+  return {
+    notifyTyping: (playerId: string) => {
+      channel.send({ type: "broadcast", event: "typing", payload: { playerId } });
+    },
+    unsubscribe: () => {
+      supabase!.removeChannel(channel);
+    },
+  };
+}
+
 export function subscribeToTurns(
   battleId: string,
   onTurn: (turn: BattleTurn) => void
