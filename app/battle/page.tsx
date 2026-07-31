@@ -30,6 +30,7 @@ export default function BattlePage() {
   const [inQueue, setInQueue] = useState(false);
   const [queueSince, setQueueSince] = useState<string | null>(null);
   const [stopPolling, setStopPolling] = useState<(() => void) | null>(null);
+  const [dotCount, setDotCount] = useState(1);
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [search, setSearch] = useState("");
@@ -83,6 +84,15 @@ export default function BattlePage() {
       unsubOut();
     };
   }, [profile, format, refreshChallenges, router]);
+
+  useEffect(() => {
+    if (!inQueue) return;
+    setDotCount(1);
+    const interval = setInterval(() => {
+      setDotCount((d) => (d % 3) + 1);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [inQueue]);
 
   async function handleJoinQueue() {
     if (!profile) return;
@@ -184,7 +194,12 @@ export default function BattlePage() {
       <div className="border border-steel-line p-8 mb-12">
         {inQueue ? (
           <div>
-            <p className="font-display text-2xl mb-2">Finding an opponent&hellip;</p>
+            <p className="font-display text-2xl mb-2">
+              Finding an opponent
+              <span className="inline-block w-[1.5em] text-left align-bottom">
+                {".".repeat(dotCount)}
+              </span>
+            </p>
             <p className="text-steel text-[15px] mb-6">
               You&rsquo;ll be moved into the battle room automatically the
               moment someone else queues up for {format}
