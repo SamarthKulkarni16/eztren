@@ -37,6 +37,7 @@ export default function BattlePage() {
   const [incoming, setIncoming] = useState<BattleChallenge[]>([]);
   const [outgoing, setOutgoing] = useState<BattleChallenge[]>([]);
   const [challengeMessage, setChallengeMessage] = useState("");
+  const [queueError, setQueueError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
@@ -81,13 +82,17 @@ export default function BattlePage() {
       unsubIn();
       unsubOut();
     };
-  }, [profile, refreshChallenges, router]);
+  }, [profile, format, refreshChallenges, router]);
 
   async function handleJoinQueue() {
     if (!profile) return;
+    setQueueError(null);
     const since = new Date().toISOString();
     const res = await joinQueue(profile.id, format, isPrivate);
-    if (!res.ok) return;
+    if (!res.ok) {
+      setQueueError(res.message ?? "Could not join the queue. Try again.");
+      return;
+    }
     setInQueue(true);
     setQueueSince(since);
     const stop = pollForMatch(profile.id, format, since, (battle) => {
@@ -100,6 +105,7 @@ export default function BattlePage() {
     if (!profile) return;
     stopPolling?.();
     setStopPolling(null);
+    setQueueError(null);
     await leaveQueue(profile.id, format);
     setInQueue(false);
   }
@@ -175,22 +181,6 @@ export default function BattlePage() {
         ))}
       </div>
 
-      <label className="flex items-start gap-3 mb-10 cursor-pointer w-fit">
-        <input
-          type="checkbox"
-          checked={isPrivate}
-          disabled={inQueue}
-          onChange={(e) => setIsPrivate(e.target.checked)}
-          className="mt-1 accent-signal disabled:cursor-not-allowed"
-        />
-        <span className="text-steel text-[14px] leading-snug">
-          Keep this battle private
-          <span className="block font-data text-[11px] uppercase tracking-wider mt-0.5">
-            Won&rsquo;t appear in the archive or Watch Live
-          </span>
-        </span>
-      </label>
-
       <div className="border border-steel-line p-8 mb-12">
         {inQueue ? (
           <div>
@@ -219,6 +209,9 @@ export default function BattlePage() {
             >
               Join Queue
             </button>
+            {queueError && (
+              <p className="font-data text-[12px] text-signal mt-4">{queueError}</p>
+            )}
           </div>
         )}
       </div>
@@ -330,6 +323,22 @@ export default function BattlePage() {
           </div>
         )}
       </div>
+
+      <label className="flex items-start gap-3 mt-12 cursor-pointer w-fit">
+        <input
+          type="checkbox"
+          checked={isPrivate}
+          disabled={inQueue}
+          onChange={(e) => setIsPrivate(e.target.checked)}
+          className="mt-1 accent-signal disabled:cursor-not-allowed"
+        />
+        <span className="text-steel text-[14px] leading-snug">
+          Keep this battle private
+          <span className="block font-data text-[11px] uppercase tracking-wider mt-0.5">
+            Won&rsquo;t appear in the archive or Watch Live
+          </span>
+        </span>
+      </label>
     </div>
   );
 }
