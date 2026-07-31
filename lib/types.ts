@@ -107,3 +107,15 @@ export interface BattleTurn {
   content: string;
   createdAt: string;
 }
+
+export type TopicProposalStatus = "pending" | "accepted" | "rejected" | "superseded";
+
+export interface TopicProposal {
+  id: string;
+  battleId: string;
+  proposedBy: string;
+  topic: string;
+  status: TopicProposalStatus;
+  createdAt: string;
+  respondedAt: string | null;
+}

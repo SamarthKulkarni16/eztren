@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
-import { Battle, BattleChallenge, BattleFormat, BattleTurn } from "./types";
+import { Battle, BattleChallenge, BattleFormat, BattleTurn, TopicProposal } from "./types";
 
 // This module assumes the caller is signed in (has a Player row via
 // getMyPlayer()). Every function needs the caller's player id passed in —
@@ -47,6 +47,18 @@ function mapTurn(t: any): BattleTurn {
     playerId: t.player_id,
     content: t.content,
     createdAt: t.created_at,
+  };
+}
+
+function mapTopicProposal(p: any): TopicProposal {
+  return {
+    id: p.id,
+    battleId: p.battle_id,
+    proposedBy: p.proposed_by,
+    topic: p.topic,
+    status: p.status,
+    createdAt: p.created_at,
+    respondedAt: p.responded_at,
   };
 }
 
@@ -282,6 +294,74 @@ export async function cancelEndRequest(battleId: string): Promise<void> {
 export async function setBattleTopic(battleId: string, topic: string): Promise<void> {
   if (!isSupabaseConfigured || !supabase) return;
   await supabase.rpc("set_battle_topic", { battle_id: battleId, new_topic: topic });
+}
+
+// ── Topic negotiation (chat-style propose / accept / reject / counter) ──
+
+export async function getTopicProposals(battleId: string): Promise<TopicProposal[]> {
+  if (!isSupabaseConfigured || !supabase) return [];
+  const { data } = await supabase
+    .from("topic_proposals")
+    .select("*")
+    .eq("battle_id", battleId)
+    .order("created_at", { ascending: true });
+  return (data ?? []).map(mapTopicProposal);
+}
+
+export async function proposeTopic(
+  battleId: string,
+  topic: string
+): Promise<{ ok: boolean; message?: string }> {
+  if (!isSupabaseConfigured || !supabase) return { ok: false, message: "Not connected." };
+  const { error } = await supabase.rpc("propose_topic", { battle_id: battleId, topic });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
+
+export async function respondToTopicProposal(
+  proposalId: string,
+  accept: boolean
+): Promise<{ ok: boolean; message?: string }> {
+  if (!isSupabaseConfigured || !supabase) return { ok: false, message: "Not connected." };
+  const { error } = await supabase.rpc("respond_to_topic_proposal", {
+    proposal_id: proposalId,
+    accept,
+  });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
+
+// Timeout fallback — safe to call from both players' clients at once, the
+// server only applies the first one to land (see 021_topic_negotiation.sql).
+export async function assignRandomTopic(battleId: string, topic: string): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) return;
+  await supabase.rpc("assign_random_topic", { battle_id: battleId, topic });
+}
+
+// Realtime: fires on any new proposal or status change (accept/reject/
+// supersede) for this battle — callers should re-run getTopicProposals()
+// rather than patch a single row, same pattern as the challenge feed.
+export function subscribeToTopicProposals(
+  battleId: string,
+  onChange: () => void
+): () => void {
+  if (!supabase) return () => {};
+  const channel = supabase
+    .channel(`topic-proposals-${battleId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "eztren",
+        table: "topic_proposals",
+        filter: `battle_id=eq.${battleId}`,
+      },
+      () => onChange()
+    )
+    .subscribe();
+  return () => {
+    supabase!.removeChannel(channel);
+  };
 }
 
 // ── Spectating ──

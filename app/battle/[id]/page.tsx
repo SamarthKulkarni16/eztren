@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getMyPlayer, getPlayerById, getMatchByBattleId } from "@/lib/queries";
-import { getBattle, markBattleLive, subscribeToBattle, setBattleTopic } from "@/lib/battle";
+import { getBattle, markBattleLive, subscribeToBattle } from "@/lib/battle";
 import { triggerJudging } from "@/lib/judge";
-import { DEBATE_TOPICS } from "@/lib/topics";
-import { useRotatingPlaceholder } from "@/lib/useRotatingPlaceholder";
 import { Player, Battle } from "@/lib/types";
 import TextBattle from "@/components/TextBattle";
 import AudioBattle from "@/components/AudioBattle";
 import VSCard, { VSCardStatus } from "@/components/VSCard";
+import TopicNegotiation from "@/components/TopicNegotiation";
 
 function toVSCardStatus(status: Battle["status"]): VSCardStatus {
   if (status === "live") return "live";
@@ -26,13 +25,6 @@ export default function BattleRoomPage() {
   const [battle, setBattle] = useState<Battle | null>(null);
   const [opponent, setOpponent] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
-  const [topicDraft, setTopicDraft] = useState("");
-
-  const rotatingTopic = useRotatingPlaceholder(
-    DEBATE_TOPICS,
-    3200,
-    battle?.status === "waiting" && battle?.format === "text" && !battle?.topic
-  );
 
   useEffect(() => {
     getMyPlayer().then(setProfile);
@@ -108,26 +100,12 @@ export default function BattleRoomPage() {
           <div>
             <p className="text-steel text-[15px] mb-4">
               Both players need to confirm ready before this goes live.
-              {battle.format === "text" && " Optionally set a topic first — either of you can."}
+              {battle.format === "text" &&
+                !battle.topic &&
+                " Agree on a topic below — you have 60 seconds before one is picked for you."}
             </p>
             {battle.format === "text" && (
-              <div className="flex gap-3 mb-6">
-                <input
-                  type="text"
-                  value={topicDraft}
-                  onChange={(e) => setTopicDraft(e.target.value)}
-                  placeholder={battle.topic ?? rotatingTopic}
-                  className="flex-1 bg-transparent border-b border-steel-line py-2 focus:border-signal outline-none text-[15px]"
-                />
-                <button
-                  onClick={() => {
-                    if (topicDraft.trim()) setBattleTopic(battle.id, topicDraft.trim());
-                  }}
-                  className="font-data text-[12px] uppercase tracking-wider text-steel hover:text-signal transition-colors"
-                >
-                  Set
-                </button>
-              </div>
+              <TopicNegotiation battle={battle} profile={profile} opponent={opponent} />
             )}
             <button
               onClick={() => markBattleLive(battle.id)}
