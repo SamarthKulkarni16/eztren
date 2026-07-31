@@ -6,6 +6,8 @@ import Link from "next/link";
 import { getMyPlayer, getPlayerById, getMatchByBattleId } from "@/lib/queries";
 import { getBattle, markBattleLive, subscribeToBattle, setBattleTopic } from "@/lib/battle";
 import { triggerJudging } from "@/lib/judge";
+import { DEBATE_TOPICS } from "@/lib/topics";
+import { useRotatingPlaceholder } from "@/lib/useRotatingPlaceholder";
 import { Player, Battle } from "@/lib/types";
 import TextBattle from "@/components/TextBattle";
 import AudioBattle from "@/components/AudioBattle";
@@ -25,6 +27,12 @@ export default function BattleRoomPage() {
   const [opponent, setOpponent] = useState<Player | null>(null);
   const [loading, setLoading] = useState(true);
   const [topicDraft, setTopicDraft] = useState("");
+
+  const rotatingTopic = useRotatingPlaceholder(
+    DEBATE_TOPICS,
+    3200,
+    battle?.status === "waiting" && battle?.format === "text" && !battle?.topic
+  );
 
   useEffect(() => {
     getMyPlayer().then(setProfile);
@@ -108,7 +116,7 @@ export default function BattleRoomPage() {
                   type="text"
                   value={topicDraft}
                   onChange={(e) => setTopicDraft(e.target.value)}
-                  placeholder={battle.topic ?? "e.g. Should remote work be the default?"}
+                  placeholder={battle.topic ?? rotatingTopic}
                   className="flex-1 bg-transparent border-b border-steel-line py-2 focus:border-signal outline-none text-[15px]"
                 />
                 <button
