@@ -87,6 +87,8 @@ export interface Battle {
   transcript: string | null;
   createdAt: string;
   isPrivate: boolean;
+  playerAReady: boolean;
+  playerBReady: boolean;
 }
 
 export interface BattleChallenge {

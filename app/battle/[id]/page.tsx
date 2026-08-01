@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getMyPlayer, getPlayerById, getMatchByBattleId } from "@/lib/queries";
-import { getBattle, markBattleLive, subscribeToBattle } from "@/lib/battle";
+import { getBattle, markPlayerReady, subscribeToBattle } from "@/lib/battle";
 import { triggerJudging } from "@/lib/judge";
 import { Player, Battle } from "@/lib/types";
 import TextBattle from "@/components/TextBattle";
@@ -96,25 +96,39 @@ export default function BattleRoomPage() {
       )}
 
       <div className={battle.status === "live" ? "" : "border border-steel-line p-8 mb-8"}>
-        {battle.status === "waiting" && (
-          <div>
-            <p className="text-steel text-[15px] mb-4">
-              Both players need to confirm ready before this goes live.
-              {battle.format === "text" &&
-                !battle.topic &&
-                " Agree on a topic below — you have 60 seconds before one is picked for you."}
-            </p>
-            {battle.format === "text" && (
-              <TopicNegotiation battle={battle} profile={profile} opponent={opponent} />
-            )}
-            <button
-              onClick={() => markBattleLive(battle.id)}
-              className="font-data text-[13px] uppercase tracking-wider bg-bone text-void px-8 py-4 hover:bg-signal transition-colors"
-            >
-              I&rsquo;m Ready
-            </button>
-          </div>
-        )}
+        {battle.status === "waiting" && (() => {
+          const isPlayerA = battle.playerAId === profile.id;
+          const myReady = isPlayerA ? battle.playerAReady : battle.playerBReady;
+          const opponentReady = isPlayerA ? battle.playerBReady : battle.playerAReady;
+          return (
+            <div>
+              <p className="text-steel text-[15px] mb-4">
+                Both players need to confirm ready before this goes live.
+                {battle.format === "text" &&
+                  !battle.topic &&
+                  " Agree on a topic below — you have 60 seconds before one is picked for you."}
+              </p>
+              {battle.format === "text" && (
+                <TopicNegotiation battle={battle} profile={profile} opponent={opponent} />
+              )}
+              {myReady ? (
+                <p className="font-data text-[13px] uppercase tracking-wider text-steel">
+                  {opponentReady
+                    ? "Starting…"
+                    : `Waiting for ${opponent?.name ?? "your opponent"} to confirm ready…`}
+                </p>
+              ) : (
+                <button
+                  onClick={() => markPlayerReady(battle.id)}
+                  className="font-data text-[13px] uppercase tracking-wider bg-bone text-void px-8 py-4 hover:bg-signal transition-colors"
+                >
+                  I&rsquo;m Ready
+                  {opponentReady ? " — opponent is waiting on you" : ""}
+                </button>
+              )}
+            </div>
+          );
+        })()}
         {battle.status === "live" && battle.format === "text" && (
           <TextBattle battle={battle} profile={profile} opponent={opponent} />
         )}

@@ -23,6 +23,8 @@ function mapBattle(b: any): Battle {
     transcript: b.transcript,
     createdAt: b.created_at,
     isPrivate: b.is_private ?? false,
+    playerAReady: b.player_a_ready ?? false,
+    playerBReady: b.player_b_ready ?? false,
   };
 }
 
@@ -274,13 +276,16 @@ export async function getBattle(battleId: string): Promise<Battle | null> {
   return mapBattle(data);
 }
 
-export async function markBattleLive(battleId: string): Promise<void> {
-  if (!isSupabaseConfigured || !supabase) return;
-  await supabase
-    .from("battles")
-    .update({ status: "live", started_at: new Date().toISOString() })
-    .eq("id", battleId)
-    .eq("status", "waiting"); // no-op if the other player already flipped it
+// Confirms the caller is ready. The battle only goes live once BOTH
+// players have called this — enforced atomically in mark_player_ready()
+// so one player can't skip waiting on the other. Returns the resulting
+// battle status ('waiting' if still waiting on the opponent, 'live' once
+// both are ready).
+export async function markPlayerReady(battleId: string): Promise<Battle["status"] | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data, error } = await supabase.rpc("mark_player_ready", { battle_id: battleId });
+  if (error) return null;
+  return data as Battle["status"];
 }
 
 export async function endBattle(battleId: string): Promise<void> {
