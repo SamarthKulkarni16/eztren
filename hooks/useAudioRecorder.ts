@@ -51,9 +51,11 @@ export function useAudioRecorder(battleId: string) {
     return true;
   }, []);
 
-  // Stops recording, uploads the merged file to Supabase Storage, and points
-  // battles.recording_url at it. Best-effort — a failed upload shouldn't
-  // block the battle from ending, so all errors are swallowed.
+  // Stops recording, uploads the merged file to Cloudflare R2 (via the
+  // server-side /api/battles/upload-recording route — R2 credentials never
+  // touch the browser), and points battles.recording_url at it. Best-effort
+  // — a failed upload shouldn't block the battle from ending, so errors are
+  // swallowed.
   const stopAndUpload = useCallback(async () => {
     const recorder = recorderRef.current;
     if (!recorder || recorder.state === "inactive") return;
@@ -69,17 +71,19 @@ export function useAudioRecorder(battleId: string) {
     if (!supabase || blob.size === 0) return;
 
     try {
-      const path = `${battleId}.webm`;
-      const { error: uploadError } = await supabase.storage
-        .from("battle-recordings")
-        .upload(path, blob, { contentType: "audio/webm", upsert: true });
-      if (uploadError) return;
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("battle-recordings").getPublicUrl(path);
+      const form = new FormData();
+      form.append("battleId", battleId);
+      form.append("file", blob, `${battleId}.webm`);
 
-      await supabase.from("battles").update({ recording_url: publicUrl }).eq("id", battleId);
+      await fetch("/api/battles/upload-recording", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
     } catch {
       // best-effort — see comment above
     }
