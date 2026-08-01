@@ -1,4 +1,4 @@
-export const metadata = { title: "Constitution | Eztren" };
+export const metadata = { title: "Constitution" };
 
 const sections = [
   {

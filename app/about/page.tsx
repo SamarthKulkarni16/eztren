@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "About Eztren",
+  title: "About",
   description:
     "What is Eztren? Eztren is a global debate sport played online — ranked debate battles judged live, climbing through alphabet leagues from Z toward A.",
   alternates: {

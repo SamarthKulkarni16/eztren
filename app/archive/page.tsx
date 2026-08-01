@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getMatches, getPlayerLookup } from "@/lib/queries";
 import VSCard from "@/components/VSCard";
 
-export const metadata = { title: "Archive | Eztren" };
+export const metadata = { title: "Archive" };
 export const dynamic = "force-dynamic";
 
 export default async function ArchivePage() {

@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { League } from "@/lib/types";
 
-export const metadata = { title: "Rankings | Eztren" };
+export const metadata = { title: "Rankings" };
 
 const leagueOrder: League[] = [
   "One Alphabet League",
