@@ -53,12 +53,21 @@ export interface Match {
 
 export interface Tournament {
   id: string;
+  slug: string;
   name: string;
   type: "promotion" | "flagship" | "emergency";
   league: League | "Cross-League";
   status: "upcoming" | "active" | "completed";
   dates: string;
   description: string;
+  // The real-world subject an emergency league exists to cover (e.g. "AI
+  // regulation"). Null for flagship/promotion tournaments — those don't
+  // gate topic negotiation on relevance to a single subject.
+  coreTopic: string | null;
+  // Pre-written motions scoped to this tournament, used for the topic
+  // placeholder rotation and as the fallback pool when players can't agree
+  // (or when the AI relevance check rejects an off-topic agreed topic).
+  topics: string[];
 }
 
 export type BattleFormat = "text" | "audio";
@@ -77,6 +86,7 @@ export interface Battle {
   playerBId: string;
   status: BattleStatus;
   topic: string | null;
+  tournamentId: string | null;
   durationSeconds: number;
   startedAt: string | null;
   endedAt: string | null;
@@ -97,6 +107,7 @@ export interface BattleChallenge {
   opponentId: string;
   format: BattleFormat;
   status: ChallengeStatus;
+  tournamentId: string | null;
   battleId: string | null;
   createdAt: string;
   respondedAt: string | null;

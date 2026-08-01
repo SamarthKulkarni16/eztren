@@ -1,0 +1,148 @@
+import Link from "next/link";
+import { getMatches, getMatchesByTournament, getPlayerLookup } from "@/lib/queries";
+import VSCard from "@/components/VSCard";
+
+// Shared archive list for both /archive (all public matches) and
+// /tournaments/[id]/archive (scoped to one tournament). When tournamentName
+// is passed, the tournament column on each card is skipped since it's
+// redundant with the page context, and the header copy adapts.
+export default async function ArchiveList({
+  tournamentId,
+  tournamentName,
+}: {
+  tournamentId?: string;
+  tournamentName?: string;
+}) {
+  const [matches, playerLookup] = await Promise.all([
+    tournamentId ? getMatchesByTournament(tournamentId) : getMatches(),
+    getPlayerLookup(),
+  ]);
+  const getPlayer = (id: string) => playerLookup.get(id);
+
+  // Case numbers run in a real sequence, oldest match is Case 0, then 1, 2
+  // ... 9, A, B ... Z, 10, 11 ... (base-36) so they can carry letters too,
+  // instead of the old random 4 characters sliced off the match's UUID.
+  // `matches` is already newest-first (from the DB query), so the oldest
+  // match is simply the last one in that array. Re-sorting by date here
+  // instead broke on same-timestamp matches: a stable sort leaves tied
+  // items in their original (newest-first) relative order, which flips
+  // their case numbers backwards. Reversing the already-ordered array
+  // sidesteps that entirely — it's always the exact opposite of what's
+  // shown on screen, no date parsing or tie-breaking involved.
+  const caseNumberById = new Map<string, string>();
+  [...matches].reverse().forEach((m, i) => {
+    caseNumberById.set(m.id, i.toString(36).toUpperCase());
+  });
+
+  return (
+    <div className="max-w-5xl mx-auto px-6 py-20">
+      <p className="font-data text-[13px] uppercase tracking-wider text-signal mb-4">
+        The Record
+      </p>
+      <h1 className="font-display text-5xl mb-6">
+        {tournamentName ? `${tournamentName}: Archive` : "Archive"}
+      </h1>
+      <p className="text-steel text-lg leading-relaxed mb-6 max-w-xl">
+        {tournamentName
+          ? `Every debate played in ${tournamentName}. Video, transcript, and an AI summary of how the argument actually turned.`
+          : "Every official match, kept. Video, transcript, and an AI summary of how the argument actually turned."}
+      </p>
+
+      {!tournamentName && (
+        <div className="mb-12">
+          <input
+            type="text"
+            placeholder="Search by topic, player, or tag&hellip;"
+            className="w-full max-w-md font-data text-sm bg-transparent border-b border-steel-line py-3 focus:border-signal outline-none placeholder:text-steel"
+            disabled
+          />
+        </div>
+      )}
+
+      <div className="space-y-px bg-steel-line border border-steel-line">
+        {matches.length === 0 && (
+          <div className="bg-void p-8 text-center">
+            <p className="text-steel text-[15px]">
+              {tournamentName
+                ? `No matches recorded for ${tournamentName} yet — check back once the first debates are played.`
+                : "No matches recorded yet — check back once the first official debates are played."}
+            </p>
+          </div>
+        )}
+        {matches.map((m) => {
+          const a = getPlayer(m.playerAId);
+          const b = getPlayer(m.playerBId);
+          const judge = getPlayer(m.judgeId);
+          return (
+            <Link
+              key={m.id}
+              href={`/matches/${m.id}`}
+              className="block bg-void p-8 relative overflow-hidden hover:bg-steel-line/10 transition-colors"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
+                <div>
+                  <p className="font-data text-[12px] uppercase tracking-wider text-steel mb-2">
+                    {m.league}
+                  </p>
+                  <h2 className="font-display text-2xl max-w-xl">{m.topic}</h2>
+                </div>
+                <p className="font-data text-[12px] text-steel whitespace-nowrap">
+                  {new Date(m.date).toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+
+              <p className="text-steel text-[15px] leading-relaxed mb-5 max-w-2xl">
+                {m.aiSummary || (
+                  <span className="italic">
+                    {m.judgeStatus === "judging"
+                      ? "The AI judge is reviewing this match\u2026"
+                      : m.judgeStatus === "failed"
+                      ? "Judging failed \u2014 will retry."
+                      : "Awaiting AI judgment."}
+                  </span>
+                )}
+              </p>
+
+              {a && b && (
+                <div className="mb-5">
+                  <VSCard
+                    playerA={{ id: a.id, name: a.name, rank: a.rank, league: a.league }}
+                    playerB={{ id: b.id, name: b.name, rank: b.rank, league: b.league }}
+                    status="completed"
+                    winnerId={m.winnerId}
+                    compact
+                  />
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-x-8 gap-y-2 mb-5 font-data text-[12px] text-steel">
+                {!m.winnerId && m.judgeStatus === "judged" && (
+                  <span className="italic">tie</span>
+                )}
+                {judge && <span>Judged by {judge.name}</span>}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {m.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="font-data text-[11px] uppercase tracking-wider text-steel border border-steel-line px-2 py-1"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              <span className="absolute top-6 right-8 font-display text-signal text-xs uppercase tracking-widest border border-signal rounded-full w-16 h-16 flex items-center justify-center rotate-12 opacity-70 select-none hidden md:flex">
+                Case {caseNumberById.get(m.id)}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

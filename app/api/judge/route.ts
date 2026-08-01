@@ -15,6 +15,7 @@ function buildPrompt(
     actualMinutes: number | null;
     endedEarly: boolean;
     format: "text" | "audio";
+    emergencyCoreTopic?: string | null;
   }
 ) {
   const durationLine = context.actualMinutes === null
@@ -23,9 +24,19 @@ function buildPrompt(
     ? `This was a free-flowing debate on the topic: "${topic}". It was scheduled for up to ${context.intendedMinutes} minutes but both players mutually agreed to end it early, after about ${context.actualMinutes} minute${context.actualMinutes === 1 ? "" : "s"}. Judge only on the substance of what was actually said — do not penalize either side for the debate being shorter than scheduled, and do not treat the early end itself as a sign either side "gave up" or "lost."`
     : `This was a free-flowing debate on the topic: "${topic}", which ran the full ${context.intendedMinutes} minutes.`;
 
+  const emergencyLine = context.emergencyCoreTopic
+    ? `
+
+This debate was part of an Emergency League activated specifically to cover "${context.emergencyCoreTopic}". This carries a strict internal rule you must apply but never mention explicitly by name in your summary or reasoning:
+- If a debater's arguments drift away from "${context.emergencyCoreTopic}" into substance that is genuinely unrelated to it, and they never bring it back, that is a serious strike against them for this match specifically — it should be enough on its own to lose them the debate, even if their unrelated arguments were individually well-reasoned. The topic itself was "${topic}", which both players agreed was related to "${context.emergencyCoreTopic}" — so straying from ${topic} into unrelated territory counts against them here.
+- The one exception: if a debater goes to what looks like an unrelated angle but then explicitly, logically connects it back to "${context.emergencyCoreTopic}" — showing a real chain of reasoning for why that angle actually bears on the subject — treat that as a strength, not a violation. Reward it as genuine perspective (this is exactly the kind of "I never thought of it that way" move the sport values), not as going off-topic.
+- Judge this normally alongside everything else — reasoning quality, evidence, communication — but let this factor decide close calls, and let a severe violation of it override an otherwise close debate.
+- Do not state this rule, or that you applied it, anywhere in your summary or reasoning. Just factor it into the "winner" call silently, the way any other judging criterion would be applied.`
+    : "";
+
   return `You are an experienced, fair judge for Eztren, a debate sport. The sport's stated goal is not just to win, but to make people think "I never thought of it that way" — it values perspective, reasoning, communication, and respectful disagreement.
 
-${durationLine}
+${durationLine}${emergencyLine}
 
 The two debaters are:
 - Player A: ${nameA}
@@ -246,11 +257,25 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // If this match belongs to an emergency league, pull its core subject so
+  // the judge enforces the on-topic rule (see buildPrompt). Not shown to
+  // players anywhere — purely a server-side prompt input.
+  let emergencyCoreTopic: string | null = null;
+  if (match.tournament_id) {
+    const { data: tournament } = await supabase
+      .from("tournaments")
+      .select("core_topic")
+      .eq("id", match.tournament_id)
+      .maybeSingle();
+    emergencyCoreTopic = tournament?.core_topic ?? null;
+  }
+
   const prompt = buildPrompt(playerA?.name ?? "Player A", playerB?.name ?? "Player B", match.topic, {
     intendedMinutes,
     actualMinutes,
     endedEarly,
     format: isAudio ? "audio" : "text",
+    emergencyCoreTopic,
   });
 
   try {

@@ -191,6 +191,7 @@ export const matches: Match[] = [
 export const tournaments: Tournament[] = [
   {
     id: "t1",
+    slug: "the-unknown-road-to-one-alphabet",
     name: "The Unknown Road to One Alphabet",
     type: "promotion",
     league: "Two Alphabet League",
@@ -198,9 +199,12 @@ export const tournaments: Tournament[] = [
     dates: "Rolling \u2014 online",
     description:
       "Two Alphabet players challenge One Alphabet players for promotion into the elite league. Currently held online. Physical tournaments coming soon.",
+    coreTopic: null,
+    topics: [],
   },
   {
     id: "t2",
+    slug: "twilight-race-to-get-the-ace",
     name: "Twilight Race to Get the Ace",
     type: "flagship",
     league: "One Alphabet League",
@@ -208,9 +212,12 @@ export const tournaments: Tournament[] = [
     dates: "January 2027",
     description:
       "One Alphabet League only. Players defend their standing and race to become A, the single highest-ranked player in the sport.",
+    coreTopic: null,
+    topics: [],
   },
   {
     id: "t3",
+    slug: "emergency-league-ai-regulation",
     name: "Emergency League: AI Regulation",
     type: "emergency",
     league: "Cross-League",
@@ -218,9 +225,18 @@ export const tournaments: Tournament[] = [
     dates: "Opened July 2026",
     description:
       "A temporary league activated to hold high-quality debate on the unfolding AI regulation landscape while it's still being written.",
+    coreTopic: "AI regulation",
+    topics: [
+      "This house would require companies to test AI systems for bias before release.",
+      "This house would grant legal personhood to advanced AI systems.",
+      "This house would require every government to license large AI models before deployment.",
+      "This house would ban fully autonomous weapons systems from military use.",
+      "This house would require AI-generated content to be labeled by law.",
+    ],
   },
   {
     id: "t4",
+    slug: "emergency-league-america-iran",
     name: "Emergency League: America\u2013Iran",
     type: "emergency",
     league: "Cross-League",
@@ -228,6 +244,12 @@ export const tournaments: Tournament[] = [
     dates: "Closed February 2026",
     description:
       "Archived. Debates from this league remain searchable and form part of the permanent record.",
+    coreTopic: "the America-Iran conflict",
+    topics: [
+      "This house believes external military intervention makes regional conflict worse, not better.",
+      "This house would lift sanctions in exchange for verified nuclear disarmament.",
+      "This house believes economic sanctions primarily harm civilians rather than governments.",
+    ],
   },
 ];
 

@@ -136,19 +136,78 @@ export async function getMatchByBattleId(battleId: string): Promise<Match | null
   };
 }
 
+function mapTournament(t: any): Tournament {
+  return {
+    id: t.id,
+    slug: t.slug ?? t.id,
+    name: t.name,
+    type: t.type,
+    league: t.league,
+    status: t.status,
+    dates: t.dates ?? "",
+    description: t.description ?? "",
+    coreTopic: t.core_topic ?? null,
+    topics: t.topics ?? [],
+  };
+}
+
 export async function getTournaments(): Promise<Tournament[]> {
   if (!isSupabaseConfigured || !supabase) return mockTournaments;
   const { data, error } = await supabase.from("tournaments").select("*");
   if (error || !data) return mockTournaments;
+  return data.map(mapTournament);
+}
+
+// Accepts either the tournament's id or its slug, so /tournaments/[id]
+// works with whichever the caller landed on (cards link by id today).
+export async function getTournamentById(idOrSlug: string): Promise<Tournament | null> {
+  if (!isSupabaseConfigured || !supabase) {
+    return mockTournaments.find((t) => t.id === idOrSlug || t.slug === idOrSlug) ?? null;
+  }
+  // Try slug first (always valid text), then fall back to id — combining
+  // both in one .or() would throw if idOrSlug isn't a valid uuid literal.
+  const bySlug = await supabase.from("tournaments").select("*").eq("slug", idOrSlug).maybeSingle();
+  if (bySlug.data) return mapTournament(bySlug.data);
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+  if (!isUuid) return null;
+  const byId = await supabase.from("tournaments").select("*").eq("id", idOrSlug).maybeSingle();
+  if (byId.error || !byId.data) return null;
+  return mapTournament(byId.data);
+}
+
+export async function getMatchesByTournament(tournamentId: string): Promise<Match[]> {
+  if (!isSupabaseConfigured || !supabase) {
+    return mockMatches.filter((m) => m.tournament === tournamentId);
+  }
+  const { data, error } = await supabase
+    .from("matches")
+    .select("*")
+    .eq("tournament_id", tournamentId)
+    .eq("is_private", false)
+    .order("match_date", { ascending: false });
+  if (error || !data) return [];
   return data.map(
-    (t): Tournament => ({
-      id: t.id,
-      name: t.name,
-      type: t.type,
-      league: t.league,
-      status: t.status,
-      dates: t.dates ?? "",
-      description: t.description ?? "",
+    (m): Match => ({
+      id: m.id,
+      topic: m.topic,
+      playerAId: m.player_a_id,
+      playerBId: m.player_b_id,
+      judgeId: m.judge_id,
+      refereeId: m.referee_id,
+      tournament: m.tournament_id,
+      league: m.league,
+      winnerId: m.winner_id,
+      date: m.match_date,
+      tags: m.tags ?? [],
+      aiSummary: m.ai_summary ?? "",
+      videoUrl: m.video_url ?? undefined,
+      transcriptUrl: m.transcript_url ?? undefined,
+      transcript: m.transcript ?? undefined,
+      battleId: m.battle_id ?? undefined,
+      judgeStatus: m.judge_status ?? "judged",
+      judgeError: m.judge_error ?? undefined,
+      judgeReasoning: m.judge_reasoning ?? undefined,
+      isPrivate: m.is_private ?? false,
     })
   );
 }

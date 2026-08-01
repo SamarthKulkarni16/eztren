@@ -13,6 +13,7 @@ function mapBattle(b: any): Battle {
     playerBId: b.player_b_id,
     status: b.status,
     topic: b.topic,
+    tournamentId: b.tournament_id ?? null,
     durationSeconds: b.duration_seconds,
     startedAt: b.started_at,
     endedAt: b.ended_at,
@@ -35,6 +36,7 @@ function mapChallenge(c: any): BattleChallenge {
     opponentId: c.opponent_id,
     format: c.format,
     status: c.status,
+    tournamentId: c.tournament_id ?? null,
     battleId: c.battle_id,
     createdAt: c.created_at,
     respondedAt: c.responded_at,
@@ -69,13 +71,14 @@ function mapTopicProposal(p: any): TopicProposal {
 export async function joinQueue(
   playerId: string,
   format: BattleFormat,
-  isPrivate: boolean = false
+  isPrivate: boolean = false,
+  tournamentId: string | null = null
 ): Promise<{ ok: boolean; message?: string; since?: string }> {
   if (!isSupabaseConfigured || !supabase) return { ok: false, message: "Not connected." };
   const { data, error } = await supabase
     .from("battle_queue")
     .upsert(
-      { player_id: playerId, format, is_private: isPrivate },
+      { player_id: playerId, format, is_private: isPrivate, tournament_id: tournamentId },
       { onConflict: "player_id,format" }
     )
     .select("joined_at")
@@ -153,12 +156,17 @@ export async function sendChallenge(
   challengerId: string,
   opponentId: string,
   format: BattleFormat,
-  isPrivate: boolean = false
+  isPrivate: boolean = false,
+  tournamentId: string | null = null
 ): Promise<{ ok: boolean; message?: string }> {
   if (!isSupabaseConfigured || !supabase) return { ok: false, message: "Not connected." };
-  const { error } = await supabase
-    .from("battle_challenges")
-    .insert({ challenger_id: challengerId, opponent_id: opponentId, format, is_private: isPrivate });
+  const { error } = await supabase.from("battle_challenges").insert({
+    challenger_id: challengerId,
+    opponent_id: opponentId,
+    format,
+    is_private: isPrivate,
+    tournament_id: tournamentId,
+  });
   if (error) {
     // 23505 = unique_violation — the DB-level guard against sending the
     // same player a second pending challenge (see

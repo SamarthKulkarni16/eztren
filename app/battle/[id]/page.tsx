@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getMyPlayer, getPlayerById, getMatchByBattleId } from "@/lib/queries";
+import { getMyPlayer, getPlayerById, getMatchByBattleId, getTournamentById } from "@/lib/queries";
 import { getBattle, markPlayerReady, subscribeToBattle } from "@/lib/battle";
-import { Player, Battle } from "@/lib/types";
+import { Player, Battle, Tournament } from "@/lib/types";
 import TextBattle from "@/components/TextBattle";
 import AudioBattle from "@/components/AudioBattle";
 import VSCard, { VSCardStatus } from "@/components/VSCard";
@@ -23,6 +23,7 @@ export default function BattleRoomPage() {
   const [profile, setProfile] = useState<Player | null>(null);
   const [battle, setBattle] = useState<Battle | null>(null);
   const [opponent, setOpponent] = useState<Player | null>(null);
+  const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +39,14 @@ export default function BattleRoomPage() {
     const unsub = subscribeToBattle(id, setBattle);
     return unsub;
   }, [id]);
+
+  useEffect(() => {
+    if (!battle?.tournamentId) {
+      setTournament(null);
+      return;
+    }
+    getTournamentById(battle.tournamentId).then(setTournament);
+  }, [battle?.tournamentId]);
 
   useEffect(() => {
     if (!battle || !profile) return;
@@ -108,7 +117,13 @@ export default function BattleRoomPage() {
                   " Agree on a topic below — you have 60 seconds before one is picked for you."}
               </p>
               {battle.format === "text" && (
-                <TopicNegotiation battle={battle} profile={profile} opponent={opponent} />
+                <TopicNegotiation
+                  battle={battle}
+                  profile={profile}
+                  opponent={opponent}
+                  tournamentTopics={tournament?.topics}
+                  tournamentCoreTopic={tournament?.coreTopic ?? null}
+                />
               )}
               {myReady ? (
                 <p className="font-data text-[13px] uppercase tracking-wider text-steel">

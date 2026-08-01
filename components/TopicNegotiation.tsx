@@ -8,6 +8,7 @@ import {
   assignRandomTopic,
   subscribeToTopicProposals,
 } from "@/lib/battle";
+import { supabase } from "@/lib/supabase";
 import { DEBATE_TOPICS } from "@/lib/topics";
 import { useRotatingPlaceholder } from "@/lib/useRotatingPlaceholder";
 import { Battle, Player, TopicProposal } from "@/lib/types";
@@ -23,15 +24,29 @@ export default function TopicNegotiation({
   battle,
   profile,
   opponent,
+  tournamentTopics,
+  tournamentCoreTopic = null,
 }: {
   battle: Battle;
   profile: Player;
   opponent: Player | null;
+  // When this battle belongs to a tournament with its own topic bank, use
+  // that instead of the generic DEBATE_TOPICS pool — both for the rotating
+  // placeholder and for the random fallback if nobody agrees in time.
+  tournamentTopics?: string[];
+  // Set only for emergency leagues (tournaments built around one
+  // real-world subject). When present, any topic BOTH players agree on
+  // still has to clear an AI relevance check against this subject before
+  // it locks in — see handleRespond below and /api/battles/confirm-topic.
+  tournamentCoreTopic?: string | null;
 }) {
+  const topicPool = tournamentTopics && tournamentTopics.length > 0 ? tournamentTopics : DEBATE_TOPICS;
   const [proposals, setProposals] = useState<TopicProposal[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkingProposalId, setCheckingProposalId] = useState<string | null>(null);
+  const [declineNotice, setDeclineNotice] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(NEGOTIATION_SECONDS);
   const [timedOut, setTimedOut] = useState(false);
   const timeoutFiredRef = useRef(false);
@@ -41,7 +56,7 @@ export default function TopicNegotiation({
   // full 60 regardless of how long the route/data fetch took to land here.
   const startRef = useRef(Date.now());
 
-  const rotatingTopic = useRotatingPlaceholder(DEBATE_TOPICS, 3200, !battle.topic, 52);
+  const rotatingTopic = useRotatingPlaceholder(topicPool, 3200, !battle.topic, 52);
 
   const refresh = () => {
     getTopicProposals(battle.id).then(setProposals);
@@ -75,7 +90,7 @@ export default function TopicNegotiation({
       if (remaining <= 0 && !timeoutFiredRef.current) {
         timeoutFiredRef.current = true;
         setTimedOut(true);
-        const randomTopic = DEBATE_TOPICS[Math.floor(Math.random() * DEBATE_TOPICS.length)];
+        const randomTopic = topicPool[Math.floor(Math.random() * topicPool.length)];
         assignRandomTopic(battle.id, randomTopic);
       }
     };
@@ -110,8 +125,53 @@ export default function TopicNegotiation({
 
   async function handleRespond(proposalId: string, accept: boolean) {
     setError(null);
-    const res = await respondToTopicProposal(proposalId, accept);
-    if (!res.ok) setError(res.message ?? "Could not respond. Try again.");
+    setDeclineNotice(null);
+
+    if (!accept) {
+      const res = await respondToTopicProposal(proposalId, false);
+      if (!res.ok) setError(res.message ?? "Could not respond. Try again.");
+      return;
+    }
+
+    // Non-emergency battles (no core subject to check against) accept
+    // instantly, same as before — no AI call needed.
+    if (!tournamentCoreTopic) {
+      const res = await respondToTopicProposal(proposalId, true);
+      if (!res.ok) setError(res.message ?? "Could not respond. Try again.");
+      return;
+    }
+
+    // Emergency league: the agreed topic has to actually be about the
+    // league's subject before it locks in. Server does the check (and,
+    // if it fails, rejects the proposal and assigns a topic from this
+    // tournament's own bank) — see /api/battles/confirm-topic.
+    setCheckingProposalId(proposalId);
+    try {
+      const { data } = await supabase!.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) {
+        setError("Not signed in.");
+        return;
+      }
+      const res = await fetch("/api/battles/confirm-topic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ proposalId, battleId: battle.id }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setError(result.error ?? "Could not confirm that topic. Try again.");
+        return;
+      }
+      if (result.accepted === false) {
+        setDeclineNotice(
+          `That topic didn't hold up as related to this league's subject, so a topic from the league's own list was assigned instead.`
+        );
+      }
+      refresh();
+    } finally {
+      setCheckingProposalId(null);
+    }
   }
 
   if (battle.topic) {
@@ -175,13 +235,15 @@ export default function TopicNegotiation({
                   <div className="flex gap-4 mt-2">
                     <button
                       onClick={() => handleRespond(p.id, true)}
-                      className="font-data text-[11px] uppercase tracking-wider text-signal hover:underline"
+                      disabled={checkingProposalId === p.id}
+                      className="font-data text-[11px] uppercase tracking-wider text-signal hover:underline disabled:opacity-50 disabled:hover:no-underline"
                     >
-                      Agree
+                      {checkingProposalId === p.id ? "Checking\u2026" : "Agree"}
                     </button>
                     <button
                       onClick={() => handleRespond(p.id, false)}
-                      className="font-data text-[11px] uppercase tracking-wider text-steel hover:underline"
+                      disabled={checkingProposalId === p.id}
+                      className="font-data text-[11px] uppercase tracking-wider text-steel hover:underline disabled:opacity-50 disabled:hover:no-underline"
                     >
                       Reject
                     </button>
@@ -198,6 +260,9 @@ export default function TopicNegotiation({
         })}
       </div>
 
+      {declineNotice && (
+        <p className="font-data text-[12px] text-brass mb-2">{declineNotice}</p>
+      )}
       {error && <p className="font-data text-[12px] text-signal mb-2">{error}</p>}
 
       <div className="flex gap-3">
