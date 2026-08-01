@@ -103,3 +103,20 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Post-battle judging suspense → reveal, used on the match archive page */
+@keyframes scan-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(220%); }
+}
+.animate-scan-sweep {
+  animation: scan-sweep 1.8s ease-in-out infinite;
+}
+
+@keyframes verdict-in {
+  0% { opacity: 0; transform: scale(0.97) translateY(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-verdict-in {
+  animation: verdict-in 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}

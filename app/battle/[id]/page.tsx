@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { getMyPlayer, getPlayerById, getMatchByBattleId } from "@/lib/queries";
 import { getBattle, markPlayerReady, subscribeToBattle } from "@/lib/battle";
-import { triggerJudging } from "@/lib/judge";
 import { Player, Battle } from "@/lib/types";
 import TextBattle from "@/components/TextBattle";
 import AudioBattle from "@/components/AudioBattle";
@@ -48,11 +47,11 @@ export default function BattleRoomPage() {
   }, [battle, profile]);
 
   useEffect(() => {
-    if (battle?.status !== "completed") return;
+    if (battle?.status !== "completed" && battle?.status !== "abandoned") return;
     getMatchByBattleId(battle.id).then((match) => {
-      if (match) triggerJudging(match.id);
+      if (match) router.replace(`/matches/${match.id}`);
     });
-  }, [battle?.status, battle?.id]);
+  }, [battle?.status, battle?.id, router]);
 
   if (loading) return null;
 
@@ -135,15 +134,14 @@ export default function BattleRoomPage() {
         {battle.status === "live" && battle.format === "audio" && (
           <AudioBattle battle={battle} profile={profile} opponent={opponent} />
         )}
-        {battle.status === "completed" && (
+        {(battle.status === "completed" || battle.status === "abandoned") && (
           <div>
-            <p className="font-display text-2xl mb-2">Battle ended.</p>
-            <Link
-              href="/battle"
-              className="font-data text-[13px] uppercase tracking-wider text-signal hover:underline"
-            >
-              Find another opponent &rarr;
-            </Link>
+            <p className="font-display text-2xl mb-2">
+              {battle.status === "abandoned" ? "Battle timed out." : "Battle ended."}
+            </p>
+            <p className="font-data text-[13px] uppercase tracking-wider text-steel">
+              Taking you to the AI judge&hellip;
+            </p>
           </div>
         )}
       </div>

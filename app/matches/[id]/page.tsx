@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { getMatchById, getPlayerLookup } from "@/lib/queries";
 import { triggerJudging, JudgeResult } from "@/lib/judge";
 import { supabase } from "@/lib/supabase";
 import { Match, Player } from "@/lib/types";
+import VSCard from "@/components/VSCard";
 
 const MAX_AUTO_RETRIES = 8; // ~2 minutes at 15s apart — covers Daily's recording processing delay
 
@@ -16,6 +17,8 @@ export default function MatchPage() {
   const [playerLookup, setPlayerLookup] = useState<Map<string, Player>>(new Map());
   const [signedIn, setSignedIn] = useState(false);
   const [judging, setJudging] = useState(false);
+  const wasJudgedRef = useRef(false);
+  const [justRevealed, setJustRevealed] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -57,6 +60,13 @@ export default function MatchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match?.id, match?.judgeStatus, signedIn]);
 
+  useEffect(() => {
+    if (!match) return;
+    const nowJudged = Boolean(match.aiSummary);
+    if (nowJudged && !wasJudgedRef.current) setJustRevealed(true);
+    wasJudgedRef.current = nowJudged;
+  }, [match?.aiSummary]);
+
   if (match === undefined) return null;
   if (match === null) {
     return (
@@ -73,7 +83,6 @@ export default function MatchPage() {
   const a = playerLookup.get(match.playerAId);
   const b = playerLookup.get(match.playerBId);
   const judge = match.judgeId ? playerLookup.get(match.judgeId) : undefined;
-  const winner = match.winnerId ? playerLookup.get(match.winnerId) : undefined;
 
   const transcriptLines = match.transcript
     ? match.transcript.split("\n").map((line) => {
@@ -104,46 +113,62 @@ export default function MatchPage() {
       </p>
       <h1 className="font-display text-4xl mb-8">{match.topic}</h1>
 
-      <div className="flex flex-wrap items-center gap-x-8 gap-y-3 mb-8 font-data text-[13px] text-steel border-y border-steel-line py-5">
-        <span>
-          {a?.rank} {a?.name}
-          {winner?.id === a?.id && <span className="text-signal ml-1">&#9679; won</span>}
-        </span>
-        <span className="text-steel-line">vs</span>
-        <span>
-          {b?.rank} {b?.name}
-          {winner?.id === b?.id && <span className="text-signal ml-1">&#9679; won</span>}
-        </span>
-        {!match.winnerId && <span className="italic">undecided</span>}
-        {judge && <span>Judged by {judge.name}</span>}
-      </div>
-
-      <p className="text-steel text-[16px] leading-relaxed mb-4 max-w-2xl">
-        {match.aiSummary || (
-          <span className="italic">
-            {match.judgeStatus === "judging" || judging
-              ? "The AI judge is reviewing this match\u2026"
-              : match.judgeStatus === "failed"
-              ? "Judging failed \u2014 will retry automatically, or try again below."
-              : "Awaiting AI judgment \u2014 the record below is the full, unedited match."}
-          </span>
-        )}
-      </p>
-
-      {!match.aiSummary && signedIn && !judging && (
-        <button
-          onClick={() => runJudging(match.id, MAX_AUTO_RETRIES)}
-          className="font-data text-[12px] uppercase tracking-wider text-signal hover:underline mb-10 block"
-        >
-          {match.judgeStatus === "failed" ? "Retry Judging" : "Judge This Match Now"}
-        </button>
+      {a && b && (
+        <div className={`mb-8 ${justRevealed && match.aiSummary ? "animate-verdict-in" : ""}`}>
+          <VSCard
+            playerA={{ id: a.id, name: a.name, rank: a.rank, league: a.league }}
+            playerB={{ id: b.id, name: b.name, rank: b.rank, league: b.league }}
+            status={match.aiSummary ? "completed" : "live"}
+            winnerId={match.winnerId}
+            topic={null}
+          />
+        </div>
       )}
-      {!match.aiSummary && !signedIn && (
-        <p className="font-data text-[12px] text-steel mb-10">
-          <Link href="/join" className="text-signal hover:underline">Sign in</Link> to trigger AI judging.
-        </p>
+
+      {!match.aiSummary ? (
+        <div className="relative overflow-hidden border border-steel-line px-8 py-10 mb-8 text-center">
+          <div className="absolute top-0 left-0 h-[2px] w-1/4 bg-signal animate-scan-sweep" />
+          <p className="font-versus font-extrabold uppercase tracking-wide text-2xl sm:text-3xl mb-3 text-bone">
+            {match.judgeStatus === "failed" && !judging
+              ? "Judging hit a snag"
+              : "The AI judge is deliberating"}
+          </p>
+          <p className="font-data text-[12px] uppercase tracking-[0.15em] text-steel flex items-center justify-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-signal animate-pulse" />
+            {match.judgeStatus === "failed" && !judging
+              ? "Will retry automatically \u2014 or try again below"
+              : "Weighing every turn, every argument"}
+          </p>
+          {signedIn && !judging && (
+            <button
+              onClick={() => runJudging(match.id, MAX_AUTO_RETRIES)}
+              className="font-data text-[12px] uppercase tracking-wider text-signal hover:underline mt-6"
+            >
+              {match.judgeStatus === "failed" ? "Retry Judging" : "Judge This Match Now"}
+            </button>
+          )}
+          {!signedIn && (
+            <p className="font-data text-[12px] text-steel mt-6">
+              <Link href="/join" className="text-signal hover:underline">Sign in</Link> to trigger AI judging.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className={justRevealed ? "animate-verdict-in" : ""}>
+          <p className="font-data text-[12px] uppercase tracking-[0.2em] text-gold mb-3">
+            &#9679; The Verdict Is In
+            {!match.winnerId && <span className="text-steel ml-2 normal-case tracking-normal">&mdash; ruled a tie</span>}
+          </p>
+          <p className="text-steel text-[16px] leading-relaxed mb-2 max-w-2xl">
+            {match.aiSummary}
+          </p>
+          {judge && (
+            <p className="font-data text-[11px] uppercase tracking-wider text-steel mb-6">
+              Judged by {judge.name}
+            </p>
+          )}
+        </div>
       )}
-      {match.aiSummary && <div className="mb-6" />}
 
       {match.judgeReasoning && (
         <div className="mb-10">
