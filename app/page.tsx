@@ -33,7 +33,7 @@ export default async function Home() {
           <p className="mt-8 max-w-xl text-lg text-steel leading-relaxed">
             That&rsquo;s the win condition. Not the loudest voice or the
             fastest talker &mdash; the argument that moves a judge, and the
-            room, somewhere new. Ranked in letters, not numbers. Climb from
+            room, somewhere new. Ranked in letters. Climb from
             the lower alphabet leagues toward becoming{" "}
             <span className="text-signal font-medium">A</span>.
           </p>

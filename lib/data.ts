@@ -197,7 +197,7 @@ export const tournaments: Tournament[] = [
     status: "active",
     dates: "Rolling \u2014 online",
     description:
-      "Two Alphabet players challenge One Alphabet players for promotion into the elite league. Currently held online; physical qualification arrives once infrastructure allows it.",
+      "Two Alphabet players challenge One Alphabet players for promotion into the elite league. Currently held online. Physical tournaments coming soon.",
   },
   {
     id: "t2",

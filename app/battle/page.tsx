@@ -150,7 +150,15 @@ export default function BattlePage() {
         p.rank.toLowerCase() === search.toLowerCase())
   );
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="max-w-xl mx-auto px-6 py-20">
+        <div className="h-4 w-16 bg-steel-line/40 mb-4 animate-pulse" />
+        <div className="h-10 w-64 bg-steel-line/40 mb-10 animate-pulse" />
+        <div className="h-40 border border-steel-line animate-pulse" />
+      </div>
+    );
+  }
 
   if (!profile) {
     return (

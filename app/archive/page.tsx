@@ -11,6 +11,18 @@ export default async function ArchivePage() {
     getPlayerLookup(),
   ]);
   const getPlayer = (id: string) => playerLookup.get(id);
+
+  // Case numbers run in a real sequence, oldest match is Case 0, then 1, 2
+  // ... 9, A, B ... Z, 10, 11 ... (base-36) so they can carry letters too,
+  // instead of the old random 4 characters sliced off the match's UUID.
+  const chronological = [...matches].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  const caseNumberById = new Map<string, string>();
+  chronological.forEach((m, i) => {
+    caseNumberById.set(m.id, i.toString(36).toUpperCase());
+  });
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-20">
       <p className="font-data text-[13px] uppercase tracking-wider text-signal mb-4">
@@ -29,9 +41,6 @@ export default async function ArchivePage() {
           className="w-full max-w-md font-data text-sm bg-transparent border-b border-steel-line py-3 focus:border-signal outline-none placeholder:text-steel"
           disabled
         />
-        <p className="font-data text-[11px] text-steel mt-2">
-          Search activates once the archive connects to live data.
-        </p>
       </div>
 
       <div className="space-y-px bg-steel-line border border-steel-line">
@@ -112,7 +121,7 @@ export default async function ArchivePage() {
               </div>
 
               <span className="absolute top-6 right-8 font-display text-signal text-xs uppercase tracking-widest border border-signal rounded-full w-16 h-16 flex items-center justify-center rotate-12 opacity-70 select-none hidden md:flex">
-                Case {m.id.slice(0, 4)}
+                Case {caseNumberById.get(m.id)}
               </span>
             </Link>
           );

@@ -119,10 +119,10 @@ export default function JoinPage() {
   return (
     <div className="max-w-xl mx-auto px-6 py-20">
       <p className="font-data text-[13px] uppercase tracking-wider text-signal mb-4">
-        {profile ? "Your Profile" : "Register"}
+        {loading ? "\u00a0" : profile ? "Your Profile" : "Register"}
       </p>
       <h1 className="font-display text-5xl mb-6">
-        {profile ? profile.name : "Join the League"}
+        {loading ? "\u00a0" : profile ? profile.name : "Join the League"}
       </h1>
 
       {loading ? null : profile ? (

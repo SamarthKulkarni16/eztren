@@ -112,7 +112,11 @@ export default async function PlayerProfilePage({
               const opponent = playerLookup.get(opponentId);
               const wasWinner = m.winnerId === player.id;
               return (
-                <div key={m.id} className="bg-void p-5">
+                <Link
+                  key={m.id}
+                  href={`/matches/${m.id}`}
+                  className="block bg-void p-5 hover:bg-steel-line/10 transition-colors cursor-pointer"
+                >
                   <p className="font-data text-[11px] uppercase tracking-wider text-steel mb-1">
                     {new Date(m.date).toLocaleDateString("en-GB", {
                       day: "2-digit",
@@ -136,7 +140,7 @@ export default async function PlayerProfilePage({
                       vs {opponent.name}
                     </p>
                   )}
-                </div>
+                </Link>
               );
             })}
           </div>

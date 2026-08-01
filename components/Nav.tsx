@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { getMyPlayer } from "@/lib/queries";
+import { slugifyName } from "@/lib/slug";
 
 const links = [
   { href: "/constitution", label: "Constitution" },
@@ -16,6 +18,7 @@ const links = [
 
 export default function Nav() {
   const [signedIn, setSignedIn] = useState(false);
+  const [myHandle, setMyHandle] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
@@ -24,9 +27,21 @@ export default function Nav() {
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => {
       setSignedIn(Boolean(s));
+      if (!s) setMyHandle(null);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    let cancelled = false;
+    getMyPlayer().then((player) => {
+      if (!cancelled) setMyHandle(player ? slugifyName(player.name) : null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
 
   return (
     <header className="border-b border-steel-line">
@@ -50,7 +65,7 @@ export default function Nav() {
             ))}
           </nav>
           <Link
-            href="/join"
+            href={signedIn && myHandle ? `/${myHandle}` : "/join"}
             className="font-data text-[13px] uppercase tracking-wider border border-bone px-4 py-2 hover:bg-bone hover:text-void transition-colors"
           >
             {signedIn ? "Me" : "Join"}
