@@ -73,7 +73,10 @@ export async function POST(req: NextRequest) {
       properties: {
         exp: expiresAt,
         max_participants: 200, // Daily's self-serve ceiling — 2 debaters + up to 198 spectators. Going higher needs a direct request to Daily.
-        enable_recording: "cloud-audio-only",
+        // No enable_recording here on purpose — Daily's cloud recording bills
+        // per recorded minute from minute one, no free tier. Audio is now
+        // captured client-side (see hooks/useAudioRecorder.ts) and uploaded
+        // straight to Supabase Storage, which is free.
         enable_screenshare: false,
         enable_chat: false,
         start_video_off: true,

@@ -14,8 +14,6 @@ export default function MatchPage() {
   const { id } = useParams<{ id: string }>();
   const [match, setMatch] = useState<Match | null | undefined>(undefined);
   const [playerLookup, setPlayerLookup] = useState<Map<string, Player>>(new Map());
-  const [recordingLink, setRecordingLink] = useState<string | null>(null);
-  const [recordingState, setRecordingState] = useState<"idle" | "loading" | "error">("idle");
   const [signedIn, setSignedIn] = useState(false);
   const [judging, setJudging] = useState(false);
 
@@ -58,24 +56,6 @@ export default function MatchPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match?.id, match?.judgeStatus, signedIn]);
-
-  async function loadRecording() {
-    if (!match) return;
-    setRecordingState("loading");
-    try {
-      const res = await fetch("/api/daily/recording-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId: match.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setRecordingLink(data.downloadLink);
-      setRecordingState("idle");
-    } catch {
-      setRecordingState("error");
-    }
-  }
 
   if (match === undefined) return null;
   if (match === null) {
@@ -214,21 +194,11 @@ export default function MatchPage() {
           <p className="font-data text-[12px] uppercase tracking-wider text-steel mb-4">
             Recording
           </p>
-          {recordingLink ? (
-            <audio controls src={recordingLink} className="w-full mb-2" />
+          {match.recordingUrl ? (
+            <audio controls src={match.recordingUrl} className="w-full mb-2" />
           ) : (
-            <button
-              onClick={loadRecording}
-              disabled={recordingState === "loading"}
-              className="font-data text-[13px] uppercase tracking-wider bg-bone text-void px-6 py-3 hover:bg-signal transition-colors disabled:opacity-40"
-            >
-              {recordingState === "loading" ? "Loading\u2026" : "Load Recording"}
-            </button>
-          )}
-          {recordingState === "error" && (
-            <p className="text-steel text-[14px] italic mt-2">
-              Recording isn&rsquo;t ready yet &mdash; Daily can take a minute
-              or two to finish processing after the call ends. Try again shortly.
+            <p className="text-steel text-[14px] italic">
+              No recording available for this match.
             </p>
           )}
         </div>

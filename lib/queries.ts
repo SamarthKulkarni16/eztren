@@ -99,6 +99,7 @@ export async function getMatchById(id: string): Promise<Match | null> {
     judgeError: data.judge_error ?? undefined,
     judgeReasoning: data.judge_reasoning ?? undefined,
     isPrivate: data.is_private ?? false,
+    recordingUrl: data.recording_url ?? null,
   };
 }
 
@@ -131,6 +132,7 @@ export async function getMatchByBattleId(battleId: string): Promise<Match | null
     judgeError: data.judge_error ?? undefined,
     judgeReasoning: data.judge_reasoning ?? undefined,
     isPrivate: data.is_private ?? false,
+    recordingUrl: data.recording_url ?? null,
   };
 }
 

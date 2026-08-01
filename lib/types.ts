@@ -48,6 +48,7 @@ export interface Match {
   judgeError?: string;
   judgeReasoning?: string;
   isPrivate?: boolean;
+  recordingUrl?: string | null;
 }
 
 export interface Tournament {

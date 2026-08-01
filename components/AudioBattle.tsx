@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { endBattle } from "@/lib/battle";
 import { Battle, Player } from "@/lib/types";
 import EndBattleControl from "@/components/EndBattleControl";
+import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 
 function formatClock(seconds: number): string {
   const m = Math.floor(Math.max(seconds, 0) / 60);
@@ -29,7 +30,11 @@ export default function AudioBattle({
   const [errorMessage, setErrorMessage] = useState("");
   const callRef = useRef<DailyCall | null>(null);
   const endedRef = useRef(false);
-  const recordingStartedRef = useRef(false);
+
+  // Deterministic so exactly one side records — avoids two duplicate files
+  // per battle without any mid-call coordination.
+  const isRecorder = Boolean(opponent) && profile.id < opponent!.id;
+  const { startRecording, stopAndUpload } = useAudioRecorder(battle.id);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,14 +71,15 @@ export default function AudioBattle({
 
       call.on("joined-meeting", () => {
         if (!cancelled) setStatus("joined");
-        // Whoever's client gets here first tries to start recording; if the
-        // other beats them to it, Daily just no-ops the second call.
-        if (!recordingStartedRef.current) {
-          recordingStartedRef.current = true;
-          call.startRecording();
-        }
+        // In case the opponent's track is already up (e.g. a rejoin).
+        if (isRecorder) startRecording(call);
       });
-      call.on("participant-joined", () => setOpponentPresent(true));
+      call.on("participant-joined", () => {
+        setOpponentPresent(true);
+        // This is the normal path — remote audio only exists once the
+        // opponent has actually joined.
+        if (isRecorder) startRecording(call);
+      });
       call.on("participant-left", () => setOpponentPresent(false));
       call.on("error", (e: any) => {
         setStatus("error");
@@ -87,6 +93,7 @@ export default function AudioBattle({
 
     return () => {
       cancelled = true;
+      if (isRecorder) stopAndUpload();
       callRef.current?.leave();
       callRef.current?.destroy();
     };
