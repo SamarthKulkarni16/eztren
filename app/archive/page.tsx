@@ -15,11 +15,15 @@ export default async function ArchivePage() {
   // Case numbers run in a real sequence, oldest match is Case 0, then 1, 2
   // ... 9, A, B ... Z, 10, 11 ... (base-36) so they can carry letters too,
   // instead of the old random 4 characters sliced off the match's UUID.
-  const chronological = [...matches].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
+  // `matches` is already newest-first (from the DB query), so the oldest
+  // match is simply the last one in that array. Re-sorting by date here
+  // instead broke on same-timestamp matches: a stable sort leaves tied
+  // items in their original (newest-first) relative order, which flips
+  // their case numbers backwards. Reversing the already-ordered array
+  // sidesteps that entirely — it's always the exact opposite of what's
+  // shown on screen, no date parsing or tie-breaking involved.
   const caseNumberById = new Map<string, string>();
-  chronological.forEach((m, i) => {
+  [...matches].reverse().forEach((m, i) => {
     caseNumberById.set(m.id, i.toString(36).toUpperCase());
   });
 
