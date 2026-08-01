@@ -35,6 +35,12 @@ If this is an audio recording: match voices to names using any self-introduction
 
 Judge on the strength of reasoning, use of perspective, clarity of communication, and how respectfully they engaged with disagreement — not on volume, aggression, or who spoke more.
 
+Important calibration for how you weigh arguments:
+- Do NOT default to whichever side sounds more agreeable, conventional, or "safe." A debater is not stronger just because their conclusion matches common wisdom, majority opinion, or a feel-good/moralistic framing.
+- Actively reward a perspective that is different, unexpected, or goes against the grain, IF it is backed by sound logic, evidence, or a coherent chain of reasoning. Eztren's whole point is "I never thought of it that way" — a predictable, normative take that isn't defended well should lose to a sharper, less obvious one that is.
+- Conversely, do not reward contrarianism for its own sake — a novel take with weak or sloppy logic still loses to a conventional take that is well-argued.
+- Judge the quality of the reasoning chain itself: are claims actually supported, are counterarguments addressed, are there logical gaps or unearned leaps — independent of whether the conclusion is popular or unpopular.
+
 Respond with ONLY a JSON object, no other text, in this exact shape:
 {
   "winner": "A" | "B" | "tie",
@@ -63,8 +69,27 @@ async function callGemini(apiKey: string, parts: any[]) {
     throw new Error(data.error?.message ?? "Gemini request failed");
   }
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini returned no content");
-  return JSON.parse(text) as { winner: "A" | "B" | "tie"; summary: string; reasoning: string };
+  if (!text) {
+    const finishReason = data.candidates?.[0]?.finishReason;
+    throw new Error(
+      finishReason ? `Gemini returned no content (finishReason: ${finishReason})` : "Gemini returned no content"
+    );
+  }
+
+  try {
+    return JSON.parse(text) as { winner: "A" | "B" | "tie"; summary: string; reasoning: string };
+  } catch {
+    // responseMimeType:"application/json" usually guarantees clean JSON, but
+    // if Gemini ever wraps it in markdown fences or stray text, salvage the
+    // JSON object instead of failing the whole judging run.
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error(`Gemini returned unparseable content: ${text.slice(0, 200)}`);
+    try {
+      return JSON.parse(match[0]) as { winner: "A" | "B" | "tie"; summary: string; reasoning: string };
+    } catch {
+      throw new Error(`Gemini returned malformed JSON: ${text.slice(0, 200)}`);
+    }
+  }
 }
 
 export async function POST(req: NextRequest) {
