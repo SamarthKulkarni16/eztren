@@ -4,7 +4,7 @@ import Link from "next/link";
 import AlphabetLadder from "@/components/AlphabetLadder";
 import VSCard from "@/components/VSCard";
 import JoinCta from "@/components/JoinCta";
-import { getMatches, getTournaments, getPlayers, getPlayerLookup, getPlayerCount } from "@/lib/queries";
+import { getMatches, getTournaments, getPlayers, getPlayerLookup, getActivePlayerCount } from "@/lib/queries";
 import { getLiveBattles } from "@/lib/battle";
 import { isFlagshipLive, isFlagshipTournament } from "@/lib/config";
 
@@ -15,7 +15,7 @@ export default async function Home() {
     getPlayers(),
     getLiveBattles(),
     getPlayerLookup(),
-    getPlayerCount(),
+    getActivePlayerCount(),
   ]);
   const flagshipLive = isFlagshipLive(playerCount);
   const featured = matches[0];

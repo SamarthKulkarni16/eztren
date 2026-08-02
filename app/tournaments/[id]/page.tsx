@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTournamentById, getPlayerCount } from "@/lib/queries";
+import { getTournamentById, getActivePlayerCount } from "@/lib/queries";
 import { FLAGSHIP_LEAGUES_THRESHOLD, isFlagshipLive, isFlagshipTournament } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export default async function TournamentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [t, playerCount] = await Promise.all([getTournamentById(id), getPlayerCount()]);
+  const [t, playerCount] = await Promise.all([getTournamentById(id), getActivePlayerCount()]);
   if (!t) notFound();
 
   const isCompleted = t.status === "completed";

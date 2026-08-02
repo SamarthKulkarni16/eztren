@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTournaments, getPlayerCount } from "@/lib/queries";
+import { getTournaments, getActivePlayerCount } from "@/lib/queries";
 import { FLAGSHIP_LEAGUES_THRESHOLD, isFlagshipLive, isFlagshipTournament } from "@/lib/config";
 
 export const metadata = { title: "Tournaments" };
@@ -12,7 +12,7 @@ const statusColor: Record<string, string> = {
 };
 
 export default async function TournamentsPage() {
-  const [tournaments, playerCount] = await Promise.all([getTournaments(), getPlayerCount()]);
+  const [tournaments, playerCount] = await Promise.all([getTournaments(), getActivePlayerCount()]);
   const flagshipLive = isFlagshipLive(playerCount);
   const flagship = tournaments.filter((t) => t.type !== "emergency");
   const emergency = tournaments.filter((t) => t.type === "emergency");
