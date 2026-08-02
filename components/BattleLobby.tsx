@@ -108,7 +108,7 @@ export default function BattleLobby({
   async function handleJoinQueue() {
     if (!profile) return;
     setQueueError(null);
-    const res = await joinQueue(profile.id, format, isPrivate, tournamentId);
+    const res = await joinQueue(profile.id, format, tournamentId ? false : isPrivate, tournamentId);
     if (!res.ok) {
       setQueueError(res.message ?? "Could not join the queue. Try again.");
       return;
@@ -140,7 +140,7 @@ export default function BattleLobby({
     if (!profile || sendingTo) return;
     setSendingTo(opponentId);
     setChallengeMessage("");
-    const res = await sendChallenge(profile.id, opponentId, format, isPrivate, tournamentId);
+    const res = await sendChallenge(profile.id, opponentId, format, tournamentId ? false : isPrivate, tournamentId);
     setChallengeMessage(res.ok ? "Challenge sent." : res.message ?? "Could not send challenge.");
     setSendingTo(null);
     refreshChallenges();
@@ -374,21 +374,23 @@ export default function BattleLobby({
         )}
       </div>
 
-      <label className="flex items-start gap-3 mt-12 cursor-pointer w-fit">
-        <input
-          type="checkbox"
-          checked={isPrivate}
-          disabled={inQueue}
-          onChange={(e) => setIsPrivate(e.target.checked)}
-          className="mt-1 accent-signal disabled:cursor-not-allowed"
-        />
-        <span className="text-steel text-[14px] leading-snug">
-          Keep this battle private
-          <span className="block font-data text-[11px] uppercase tracking-wider mt-0.5">
-            Won&rsquo;t appear in the archive or Watch Live
+      {!tournamentId && (
+        <label className="flex items-start gap-3 mt-12 cursor-pointer w-fit">
+          <input
+            type="checkbox"
+            checked={isPrivate}
+            disabled={inQueue}
+            onChange={(e) => setIsPrivate(e.target.checked)}
+            className="mt-1 accent-signal disabled:cursor-not-allowed"
+          />
+          <span className="text-steel text-[14px] leading-snug">
+            Keep this battle private
+            <span className="block font-data text-[11px] uppercase tracking-wider mt-0.5">
+              Won&rsquo;t appear in the archive or Watch Live
+            </span>
           </span>
-        </span>
-      </label>
+        </label>
+      )}
     </div>
   );
 }
