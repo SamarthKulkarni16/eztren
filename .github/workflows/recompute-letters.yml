@@ -1,0 +1,30 @@
+name: Recompute Eztren Letters
+
+on:
+  schedule:
+    # Every Monday 03:00 UTC (08:30 IST). Adjust the cron if you want a
+    # different day/time — ranks will visibly shift right after this runs,
+    # so pick a time when few people are mid-battle.
+    - cron: "0 3 * * 1"
+  workflow_dispatch: {}   # lets you trigger it manually from the Actions tab
+
+jobs:
+  recompute:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call recompute_letters RPC
+        run: |
+          response=$(curl -s -o /tmp/body.txt -w "%{http_code}" -X POST \
+            "https://rrwycwlahzcxldowvfnm.supabase.co/rest/v1/rpc/recompute_letters" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+
+          echo "HTTP status: $response"
+          cat /tmp/body.txt
+
+          if [ "$response" -ge 300 ]; then
+            echo "recompute_letters call failed"
+            exit 1
+          fi
