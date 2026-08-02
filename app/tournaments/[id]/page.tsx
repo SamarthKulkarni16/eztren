@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTournamentById } from "@/lib/queries";
+import { FLAGSHIP_LEAGUES_LIVE, isFlagshipTournament } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,34 @@ export default async function TournamentDetailPage({
   if (!t) notFound();
 
   const isCompleted = t.status === "completed";
+  const isHiddenFlagship = !FLAGSHIP_LEAGUES_LIVE && isFlagshipTournament(t.type);
+
+  if (isHiddenFlagship) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-20">
+        <Link
+          href="/tournaments"
+          className="font-data text-[12px] uppercase tracking-wider text-steel hover:text-bone transition-colors"
+        >
+          &larr; Tournaments
+        </Link>
+
+        <div className="flex items-center gap-3 mt-8 mb-4">
+          <span className="font-data text-[11px] uppercase tracking-wider border border-brass text-brass px-2 py-1">
+            coming soon
+          </span>
+          <span className="font-data text-[11px] uppercase tracking-wider text-steel">
+            {t.league}
+          </span>
+        </div>
+
+        <h1 className="font-display text-5xl mb-6">{t.name}</h1>
+        <p className="text-steel text-lg leading-relaxed italic">
+          Seeing A Glimpse&hellip;
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-20">

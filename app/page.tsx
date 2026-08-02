@@ -6,6 +6,7 @@ import VSCard from "@/components/VSCard";
 import JoinCta from "@/components/JoinCta";
 import { getMatches, getTournaments, getPlayers, getPlayerLookup } from "@/lib/queries";
 import { getLiveBattles } from "@/lib/battle";
+import { FLAGSHIP_LEAGUES_LIVE, isFlagshipTournament } from "@/lib/config";
 
 export default async function Home() {
   const [matches, tournaments, players, liveBattles, playerLookup] = await Promise.all([
@@ -16,7 +17,9 @@ export default async function Home() {
     getPlayerLookup(),
   ]);
   const featured = matches[0];
-  const activeTournaments = tournaments.filter((t) => t.status === "active");
+  const activeTournaments = tournaments.filter(
+    (t) => t.status === "active" && (FLAGSHIP_LEAGUES_LIVE || !isFlagshipTournament(t.type))
+  );
   const ace = players.find((p) => p.rank === "A");
 
   return (

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTournaments } from "@/lib/queries";
+import { FLAGSHIP_LEAGUES_LIVE, isFlagshipTournament } from "@/lib/config";
 
 export const metadata = { title: "Tournaments" };
 export const dynamic = "force-dynamic";
@@ -25,29 +26,46 @@ export default async function TournamentsPage() {
       <section className="mb-20">
         <h2 className="font-display text-2xl mb-8">Flagship</h2>
         <div className="grid md:grid-cols-2 gap-px bg-steel-line border border-steel-line">
-          {flagship.map((t) => (
-            <Link
-              key={t.id}
-              href={`/tournaments/${t.slug}`}
-              className="bg-void p-8 hover:bg-steel-line/10 transition-colors"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <span
-                  className={`font-data text-[11px] uppercase tracking-wider border px-2 py-1 ${statusColor[t.status]}`}
-                >
-                  {t.status}
-                </span>
-                <span className="font-data text-[11px] uppercase tracking-wider text-steel">
-                  {t.league}
-                </span>
+          {flagship.map((t) =>
+            !FLAGSHIP_LEAGUES_LIVE && isFlagshipTournament(t.type) ? (
+              <div key={t.id} className="bg-void p-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="font-data text-[11px] uppercase tracking-wider border border-brass text-brass px-2 py-1">
+                    coming soon
+                  </span>
+                  <span className="font-data text-[11px] uppercase tracking-wider text-steel">
+                    {t.league}
+                  </span>
+                </div>
+                <h3 className="font-display text-2xl mb-3">{t.name}</h3>
+                <p className="text-steel text-[15px] leading-relaxed italic">
+                  Seeing A Glimpse&hellip;
+                </p>
               </div>
-              <h3 className="font-display text-2xl mb-3">{t.name}</h3>
-              <p className="text-steel text-[15px] leading-relaxed mb-4">
-                {t.description}
-              </p>
-              <p className="font-data text-[12px] text-steel">{t.dates}</p>
-            </Link>
-          ))}
+            ) : (
+              <Link
+                key={t.id}
+                href={`/tournaments/${t.slug}`}
+                className="bg-void p-8 hover:bg-steel-line/10 transition-colors"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <span
+                    className={`font-data text-[11px] uppercase tracking-wider border px-2 py-1 ${statusColor[t.status]}`}
+                  >
+                    {t.status}
+                  </span>
+                  <span className="font-data text-[11px] uppercase tracking-wider text-steel">
+                    {t.league}
+                  </span>
+                </div>
+                <h3 className="font-display text-2xl mb-3">{t.name}</h3>
+                <p className="text-steel text-[15px] leading-relaxed mb-4">
+                  {t.description}
+                </p>
+                <p className="font-data text-[12px] text-steel">{t.dates}</p>
+              </Link>
+            )
+          )}
         </div>
       </section>
 
