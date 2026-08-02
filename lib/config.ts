@@ -1,22 +1,24 @@
-// Single switch for the two flagship leagues (Unknown Road to One Alphabet
-// promotion tournament, Twilight Race to Get the Ace championship).
+// The two flagship leagues (Unknown Road to One Alphabet promotion
+// tournament, Twilight Race to Get the Ace championship) unlock
+// automatically once the platform hits a real player count — not on a
+// manual flip. Below that count, everyone lands in the One/Two Alphabet
+// League by default just from low headcount, which makes "promotion" and
+// "highest-ranked player" meaningless titles. See isFlagshipLive() below.
 //
-// With almost no players yet, everyone who joins lands straight in the One
-// or Two Alphabet League by default just from low headcount — not because
-// they climbed there. That makes both flagship tournaments meaningless
-// right now: there's no ladder underneath them to promote from or defend
-// against.
-//
-// Rather than rip the tournaments (or their battle/archive/judging routes)
-// out of the codebase, flip this flag. Everything else — the tournament
-// rows in the DB, /tournaments/[slug]/battle, /tournaments/[slug]/archive,
-// AI judging, rank effects — stays fully wired and untouched. Set this
-// back to true once the player base is big enough for these to mean
-// something, and the whole pipeline is live again with no other changes.
-export const FLAGSHIP_LEAGUES_LIVE = false;
+// All underlying routes, battle flow, archive, and judging logic for both
+// tournaments are untouched regardless of this check — only the display
+// layer (tournament cards, homepage strip, detail pages) reacts to it.
+export const FLAGSHIP_LEAGUES_THRESHOLD = 100;
 
-// Both current flagship rows use these `type` values (see schema.sql seed
-// data). Anything else (e.g. 'emergency') is unaffected by the flag.
+// Manual override: set true to force flagship leagues live regardless of
+// player count (e.g. to test the live pages before the threshold is hit).
+// Leave false to let the threshold below decide automatically.
+const MANUAL_OVERRIDE = false;
+
 export function isFlagshipTournament(type: string): boolean {
   return type === "promotion" || type === "flagship";
+}
+
+export function isFlagshipLive(playerCount: number): boolean {
+  return MANUAL_OVERRIDE || playerCount >= FLAGSHIP_LEAGUES_THRESHOLD;
 }

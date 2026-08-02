@@ -4,21 +4,23 @@ import Link from "next/link";
 import AlphabetLadder from "@/components/AlphabetLadder";
 import VSCard from "@/components/VSCard";
 import JoinCta from "@/components/JoinCta";
-import { getMatches, getTournaments, getPlayers, getPlayerLookup } from "@/lib/queries";
+import { getMatches, getTournaments, getPlayers, getPlayerLookup, getPlayerCount } from "@/lib/queries";
 import { getLiveBattles } from "@/lib/battle";
-import { FLAGSHIP_LEAGUES_LIVE, isFlagshipTournament } from "@/lib/config";
+import { isFlagshipLive, isFlagshipTournament } from "@/lib/config";
 
 export default async function Home() {
-  const [matches, tournaments, players, liveBattles, playerLookup] = await Promise.all([
+  const [matches, tournaments, players, liveBattles, playerLookup, playerCount] = await Promise.all([
     getMatches(),
     getTournaments(),
     getPlayers(),
     getLiveBattles(),
     getPlayerLookup(),
+    getPlayerCount(),
   ]);
+  const flagshipLive = isFlagshipLive(playerCount);
   const featured = matches[0];
   const activeTournaments = tournaments.filter(
-    (t) => t.status === "active" && (FLAGSHIP_LEAGUES_LIVE || !isFlagshipTournament(t.type))
+    (t) => t.status === "active" && (flagshipLive || !isFlagshipTournament(t.type))
   );
   const ace = players.find((p) => p.rank === "A");
 

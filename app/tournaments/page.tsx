@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { getTournaments } from "@/lib/queries";
-import { FLAGSHIP_LEAGUES_LIVE, isFlagshipTournament } from "@/lib/config";
+import { getTournaments, getPlayerCount } from "@/lib/queries";
+import { FLAGSHIP_LEAGUES_THRESHOLD, isFlagshipLive, isFlagshipTournament } from "@/lib/config";
 
 export const metadata = { title: "Tournaments" };
 export const dynamic = "force-dynamic";
@@ -12,7 +12,8 @@ const statusColor: Record<string, string> = {
 };
 
 export default async function TournamentsPage() {
-  const tournaments = await getTournaments();
+  const [tournaments, playerCount] = await Promise.all([getTournaments(), getPlayerCount()]);
+  const flagshipLive = isFlagshipLive(playerCount);
   const flagship = tournaments.filter((t) => t.type !== "emergency");
   const emergency = tournaments.filter((t) => t.type === "emergency");
 
@@ -27,7 +28,7 @@ export default async function TournamentsPage() {
         <h2 className="font-display text-2xl mb-8">Flagship</h2>
         <div className="grid md:grid-cols-2 gap-px bg-steel-line border border-steel-line">
           {flagship.map((t) =>
-            !FLAGSHIP_LEAGUES_LIVE && isFlagshipTournament(t.type) ? (
+            !flagshipLive && isFlagshipTournament(t.type) ? (
               <div key={t.id} className="bg-void p-8">
                 <div className="flex items-center gap-3 mb-4">
                   <span className="font-data text-[11px] uppercase tracking-wider border border-brass text-brass px-2 py-1">
@@ -38,6 +39,15 @@ export default async function TournamentsPage() {
                   </span>
                 </div>
                 <h3 className="font-display text-2xl mb-3">{t.name}</h3>
+                <div className="mt-6 pt-4 border-t border-steel-line">
+                  <p className="font-data text-[12px] text-steel">
+                    Waiting for {FLAGSHIP_LEAGUES_THRESHOLD} members &mdash;{" "}
+                    <span className="text-signal">
+                      {playerCount}/{FLAGSHIP_LEAGUES_THRESHOLD}
+                    </span>{" "}
+                    joined
+                  </p>
+                </div>
               </div>
             ) : (
               <Link

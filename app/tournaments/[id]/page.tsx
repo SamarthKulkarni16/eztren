@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTournamentById } from "@/lib/queries";
-import { FLAGSHIP_LEAGUES_LIVE, isFlagshipTournament } from "@/lib/config";
+import { getTournamentById, getPlayerCount } from "@/lib/queries";
+import { FLAGSHIP_LEAGUES_THRESHOLD, isFlagshipLive, isFlagshipTournament } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,11 @@ export default async function TournamentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const t = await getTournamentById(id);
+  const [t, playerCount] = await Promise.all([getTournamentById(id), getPlayerCount()]);
   if (!t) notFound();
 
   const isCompleted = t.status === "completed";
-  const isHiddenFlagship = !FLAGSHIP_LEAGUES_LIVE && isFlagshipTournament(t.type);
+  const isHiddenFlagship = !isFlagshipLive(playerCount) && isFlagshipTournament(t.type);
 
   if (isHiddenFlagship) {
     return (
@@ -49,6 +49,14 @@ export default async function TournamentDetailPage({
         </div>
 
         <h1 className="font-display text-5xl mb-6">{t.name}</h1>
+
+        <p className="font-data text-[13px] text-steel mt-10 pt-6 border-t border-steel-line">
+          Waiting for {FLAGSHIP_LEAGUES_THRESHOLD} members &mdash;{" "}
+          <span className="text-signal">
+            {playerCount}/{FLAGSHIP_LEAGUES_THRESHOLD}
+          </span>{" "}
+          joined
+        </p>
       </div>
     );
   }

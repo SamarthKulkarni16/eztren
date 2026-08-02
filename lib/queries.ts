@@ -34,6 +34,18 @@ export async function getPlayers(): Promise<Player[]> {
   );
 }
 
+// Cheap head-count query (no row data pulled) — used to decide whether
+// the flagship tournaments have hit their player-count threshold yet.
+// See lib/config.ts for the threshold and the isFlagshipLive() check.
+export async function getPlayerCount(): Promise<number> {
+  if (!isSupabaseConfigured || !supabase) return mockPlayers.length;
+  const { count, error } = await supabase
+    .from("players")
+    .select("*", { count: "exact", head: true });
+  if (error || count == null) return mockPlayers.length;
+  return count;
+}
+
 export async function getMatches(): Promise<Match[]> {
   if (!isSupabaseConfigured || !supabase) return mockMatches;
   const { data, error } = await supabase
