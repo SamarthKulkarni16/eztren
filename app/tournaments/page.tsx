@@ -31,16 +31,13 @@ export default async function TournamentsPage() {
               <div key={t.id} className="bg-void p-8">
                 <div className="flex items-center gap-3 mb-4">
                   <span className="font-data text-[11px] uppercase tracking-wider border border-brass text-brass px-2 py-1">
-                    coming soon
+                    seeing a glimpse&hellip;
                   </span>
                   <span className="font-data text-[11px] uppercase tracking-wider text-steel">
                     {t.league}
                   </span>
                 </div>
                 <h3 className="font-display text-2xl mb-3">{t.name}</h3>
-                <p className="text-steel text-[15px] leading-relaxed italic">
-                  Seeing A Glimpse&hellip;
-                </p>
               </div>
             ) : (
               <Link

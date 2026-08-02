@@ -41,7 +41,7 @@ export default async function TournamentDetailPage({
 
         <div className="flex items-center gap-3 mt-8 mb-4">
           <span className="font-data text-[11px] uppercase tracking-wider border border-brass text-brass px-2 py-1">
-            coming soon
+            seeing a glimpse&hellip;
           </span>
           <span className="font-data text-[11px] uppercase tracking-wider text-steel">
             {t.league}
@@ -49,9 +49,6 @@ export default async function TournamentDetailPage({
         </div>
 
         <h1 className="font-display text-5xl mb-6">{t.name}</h1>
-        <p className="text-steel text-lg leading-relaxed italic">
-          Seeing A Glimpse&hellip;
-        </p>
       </div>
     );
   }
