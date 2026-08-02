@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// The only place GEMINI_API_KEY and DAILY_API_KEY get touched — both are
-// server-only env vars, never shipped to the browser.
+// The only place GEMINI_API_KEY gets touched — a server-only env var,
+// never shipped to the browser.
 
 const GEMINI_MODEL = "gemini-3.5-flash";
 
@@ -14,7 +14,7 @@ function buildPrompt(
     intendedMinutes: number;
     actualMinutes: number | null;
     endedEarly: boolean;
-    format: "text" | "audio";
+    format: "text" | "audio" | "audio-transcript";
     emergencyCoreTopic?: string | null;
   }
 ) {
@@ -42,7 +42,12 @@ The two debaters are:
 - Player A: ${nameA}
 - Player B: ${nameB}
 
-If this is an audio recording: match voices to names using any self-introduction near the start of the call, and your best judgment from context if no names were stated. Two people are speaking; if you truly cannot distinguish, do your best based on the order and content of what's said.
+${context.format === "audio"
+    ? "If this is an audio recording: match voices to names using any self-introduction near the start of the call, and your best judgment from context if no names were stated. Two people are speaking; if you truly cannot distinguish, do your best based on the order and content of what's said."
+    : context.format === "audio-transcript"
+    ? "This was a spoken debate, not typed — the transcript below was generated automatically by each speaker's own browser as they talked, and is already labeled by speaker name. It will contain the normal artifacts of live speech-to-text: missed or misheard words, run-on sentences, filler words, and no punctuation discipline. Judge the substance of the reasoning, not the grammar — do not penalize either side for phrasing that's clearly a transcription quirk rather than a real argument."
+    : ""
+}
 
 Judge on the strength of reasoning, use of perspective, clarity of communication, and how respectfully they engaged with disagreement — not on volume, aggression, or who spoke more.
 
@@ -119,7 +124,6 @@ export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
-  const dailyKey = process.env.DAILY_API_KEY;
 
   if (!url || !anonKey || !geminiKey) {
     return NextResponse.json({ error: "Server not configured" }, { status: 500 });
@@ -156,55 +160,85 @@ export async function POST(req: NextRequest) {
 
   const isAudio = (match.tags ?? []).includes("audio");
 
-  // Audio recordings need time to finish processing on Daily's side — if
-  // it's not ready yet, don't claim the match, just tell the client to
-  // retry shortly.
+  // Needed up front (not just for the prompt) — an audio match's transcript
+  // only counts as "complete" if it actually has lines from both speakers.
+  const { data: playerA } = await supabase
+    .from("players")
+    .select("name")
+    .eq("id", match.player_a_id)
+    .maybeSingle();
+  const { data: playerB } = await supabase
+    .from("players")
+    .select("name")
+    .eq("id", match.player_b_id)
+    .maybeSingle();
+
+  // Pulled once, used both for duration context below and — for audio
+  // matches — as the live source of the fallback recording. matches.video_url
+  // is a snapshot taken the instant the battle ends, but the recorder's
+  // browser uploads to R2 asynchronously right after that, so the snapshot
+  // is very often still null at this point; battles.recording_url catches
+  // up a few seconds later.
+  let battleRow: {
+    duration_seconds: number;
+    started_at: string | null;
+    ended_at: string | null;
+    recording_url: string | null;
+  } | null = null;
+  if (match.battle_id) {
+    const { data: b } = await supabase
+      .from("battles")
+      .select("duration_seconds, started_at, ended_at, recording_url")
+      .eq("id", match.battle_id)
+      .maybeSingle();
+    battleRow = b ?? null;
+  }
+
+  let format: "text" | "audio" | "audio-transcript" = "text";
   let audioBase64: string | null = null;
-  let audioMimeType = "audio/mp4";
+  let audioMimeType = "audio/webm";
 
   if (isAudio) {
-    if (!dailyKey) {
-      return NextResponse.json({ error: "Daily not configured" }, { status: 500 });
-    }
-    if (!match.daily_room_name) {
-      return NextResponse.json({ status: "pending", reason: "no_room" });
-    }
+    const transcript: string = match.transcript ?? "";
+    const hasBothSpeakers =
+      Boolean(playerA?.name) &&
+      Boolean(playerB?.name) &&
+      transcript.includes(`${playerA!.name}: `) &&
+      transcript.includes(`${playerB!.name}: `);
 
-    const listRes = await fetch(
-      `https://api.daily.co/v1/recordings?room_name=${match.daily_room_name}`,
-      { headers: { Authorization: `Bearer ${dailyKey}` } }
-    );
-    const list = await listRes.json();
-    const recording = list.data?.find((r: any) => r.status === "finished");
-    if (!recording) {
-      return NextResponse.json({ status: "pending", reason: "recording_not_ready" });
+    if (hasBothSpeakers) {
+      // The cheap path: both speakers' browsers successfully transcribed
+      // their own mic (see hooks/useSpeechTranscription.ts), so there's a
+      // full text transcript and Gemini never has to touch raw audio.
+      format = "audio-transcript";
+    } else {
+      // Transcript missing or one-sided (unsupported browser, permission
+      // denied, recognition failed) — fall back to the recorded audio.
+      const recordingUrl = battleRow?.recording_url;
+      if (!recordingUrl) {
+        // Recording upload is still in flight — same "come back shortly"
+        // contract the client already retries on (see MAX_AUTO_RETRIES in
+        // app/matches/[id]/page.tsx).
+        return NextResponse.json({ status: "pending", reason: "recording_not_ready" });
+      }
+      const audioRes = await fetch(recordingUrl);
+      if (!audioRes.ok) {
+        return NextResponse.json({ status: "pending", reason: "download_failed" });
+      }
+      const contentType = audioRes.headers.get("content-type");
+      if (contentType) audioMimeType = contentType;
+      const buffer = await audioRes.arrayBuffer();
+      if (buffer.byteLength > 19 * 1024 * 1024) {
+        // Over Gemini's inline request limit for this MVP path.
+        await supabase.rpc("mark_match_judge_failed", {
+          match_id: matchId,
+          error_text: "Recording too large for inline judging",
+        });
+        return NextResponse.json({ status: "failed", reason: "too_large" });
+      }
+      audioBase64 = Buffer.from(buffer).toString("base64");
+      format = "audio";
     }
-
-    const linkRes = await fetch(
-      `https://api.daily.co/v1/recordings/${recording.id}/access-link`,
-      { headers: { Authorization: `Bearer ${dailyKey}` } }
-    );
-    const link = await linkRes.json();
-    if (!linkRes.ok) {
-      return NextResponse.json({ status: "pending", reason: "link_failed" });
-    }
-
-    const audioRes = await fetch(link.download_link);
-    if (!audioRes.ok) {
-      return NextResponse.json({ status: "pending", reason: "download_failed" });
-    }
-    const contentType = audioRes.headers.get("content-type");
-    if (contentType) audioMimeType = contentType;
-    const buffer = await audioRes.arrayBuffer();
-    if (buffer.byteLength > 19 * 1024 * 1024) {
-      // Over Gemini's inline request limit for this MVP path.
-      await supabase.rpc("mark_match_judge_failed", {
-        match_id: matchId,
-        error_text: "Recording too large for inline judging",
-      });
-      return NextResponse.json({ status: "failed", reason: "too_large" });
-    }
-    audioBase64 = Buffer.from(buffer).toString("base64");
   } else if (!match.transcript) {
     return NextResponse.json({ status: "pending", reason: "no_transcript" });
   }
@@ -218,42 +252,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "judging" });
   }
 
-  const { data: playerA } = await supabase
-    .from("players")
-    .select("name")
-    .eq("id", match.player_a_id)
-    .maybeSingle();
-  const { data: playerB } = await supabase
-    .from("players")
-    .select("name")
-    .eq("id", match.player_b_id)
-    .maybeSingle();
-
-  // Pull the real scheduled vs. actual duration off the underlying battle
-  // row (matches.battle_id) so the judge knows whether this ended early —
-  // otherwise a battle mutually ended after 2 minutes would get judged
-  // against a hardcoded "10-minute debate" framing that no longer matched
-  // what actually happened.
+  // Real scheduled vs. actual duration, from the same battle row pulled
+  // above — so the judge knows whether this ended early rather than being
+  // judged against a hardcoded "10-minute debate" framing.
   let intendedMinutes = 10;
   let actualMinutes: number | null = null;
   let endedEarly = false;
-  if (match.battle_id) {
-    const { data: b } = await supabase
-      .from("battles")
-      .select("duration_seconds, started_at, ended_at")
-      .eq("id", match.battle_id)
-      .maybeSingle();
-    if (b) {
-      intendedMinutes = Math.round((b.duration_seconds ?? 600) / 60);
-      if (b.started_at && b.ended_at) {
-        const actualSeconds =
-          (new Date(b.ended_at).getTime() - new Date(b.started_at).getTime()) / 1000;
-        actualMinutes = Math.max(1, Math.round(actualSeconds / 60));
-        // 15s grace for the usual gap between the timer hitting zero and
-        // the completion call landing — anything beyond that is a genuine
-        // early end, not just network/processing lag.
-        endedEarly = actualSeconds < (b.duration_seconds ?? 600) - 15;
-      }
+  if (battleRow) {
+    intendedMinutes = Math.round((battleRow.duration_seconds ?? 600) / 60);
+    if (battleRow.started_at && battleRow.ended_at) {
+      const actualSeconds =
+        (new Date(battleRow.ended_at).getTime() - new Date(battleRow.started_at).getTime()) / 1000;
+      actualMinutes = Math.max(1, Math.round(actualSeconds / 60));
+      // 15s grace for the usual gap between the timer hitting zero and the
+      // completion call landing — anything beyond that is a genuine early
+      // end, not just network/processing lag.
+      endedEarly = actualSeconds < (battleRow.duration_seconds ?? 600) - 15;
     }
   }
 
@@ -274,13 +288,13 @@ export async function POST(req: NextRequest) {
     intendedMinutes,
     actualMinutes,
     endedEarly,
-    format: isAudio ? "audio" : "text",
+    format,
     emergencyCoreTopic,
   });
 
   try {
     const parts: any[] = [{ text: prompt }];
-    if (isAudio && audioBase64) {
+    if (format === "audio" && audioBase64) {
       parts.push({ inlineData: { mimeType: audioMimeType, data: audioBase64 } });
     } else {
       parts.push({ text: `\n\nTranscript:\n${match.transcript}` });

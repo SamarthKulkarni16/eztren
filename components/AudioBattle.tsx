@@ -7,6 +7,7 @@ import { endBattle } from "@/lib/battle";
 import { Battle, Player } from "@/lib/types";
 import EndBattleControl from "@/components/EndBattleControl";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
+import { useSpeechTranscription } from "@/hooks/useSpeechTranscription";
 
 function formatClock(seconds: number): string {
   const m = Math.floor(Math.max(seconds, 0) / 60);
@@ -32,9 +33,22 @@ export default function AudioBattle({
   const endedRef = useRef(false);
 
   // Deterministic so exactly one side records — avoids two duplicate files
-  // per battle without any mid-call coordination.
+  // per battle without any mid-call coordination. This audio recording is
+  // now purely a fallback: the AI judge prefers the live browser transcript
+  // (cheap, text) and only reaches for this recording when a transcript
+  // isn't usable — see app/api/judge/route.ts.
   const isRecorder = Boolean(opponent) && profile.id < opponent!.id;
   const { startRecording, stopAndUpload } = useAudioRecorder(battle.id);
+
+  // Every participant transcribes their own mic locally (not just the
+  // "recorder" side) — that's what builds a full two-speaker transcript.
+  const {
+    supported: transcriptionSupported,
+    active: transcribing,
+    failed: transcriptionFailed,
+    start: startTranscription,
+    stop: stopTranscription,
+  } = useSpeechTranscription(battle.id, profile.id);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +85,7 @@ export default function AudioBattle({
 
       call.on("joined-meeting", () => {
         if (!cancelled) setStatus("joined");
+        startTranscription();
         // In case the opponent's track is already up (e.g. a rejoin).
         if (isRecorder) startRecording(call);
       });
@@ -93,6 +108,7 @@ export default function AudioBattle({
 
     return () => {
       cancelled = true;
+      stopTranscription();
       if (isRecorder) stopAndUpload();
       callRef.current?.leave();
       callRef.current?.destroy();
@@ -173,7 +189,7 @@ export default function AudioBattle({
         </div>
       )}
 
-      <div className="flex gap-4 mb-6">
+      <div className="flex items-center gap-4 mb-6">
         {status === "joined" && (
           <button
             onClick={toggleMute}
@@ -181,6 +197,16 @@ export default function AudioBattle({
           >
             {muted ? "Unmute" : "Mute"}
           </button>
+        )}
+        {status === "joined" && transcriptionSupported && !transcriptionFailed && (
+          <p className="font-data text-[11px] uppercase tracking-wider text-steel">
+            {transcribing ? "Live captions on" : "Starting captions\u2026"}
+          </p>
+        )}
+        {status === "joined" && (!transcriptionSupported || transcriptionFailed) && (
+          <p className="font-data text-[11px] uppercase tracking-wider text-steel">
+            Captions unavailable in this browser &mdash; judged from audio instead
+          </p>
         )}
       </div>
 
