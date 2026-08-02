@@ -278,7 +278,7 @@ export default function TopicNegotiation({
           disabled={sending || timedOut}
           autoFocus
           enterKeyHint="send"
-          className="flex-1 bg-transparent border-b border-steel-line py-2 focus:border-signal outline-none text-[15px] disabled:opacity-50 placeholder:text-steel placeholder:italic placeholder:opacity-60"
+          className="flex-1 bg-transparent border-b border-steel-line py-2 focus:border-signal outline-none text-[16px] disabled:opacity-50 placeholder:text-steel placeholder:italic placeholder:opacity-60"
         />
         <button
           onClick={handlePropose}

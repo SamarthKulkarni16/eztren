@@ -56,7 +56,7 @@ export default async function RankingsPage() {
                 <Link
                   href={`/players/${p.id}`}
                   key={p.id}
-                  className="grid grid-cols-[3.5rem_1fr_auto_auto] sm:grid-cols-[4rem_1fr_8rem_8rem_8rem] items-center gap-4 border-b border-steel-line py-4 hover:bg-steel-line transition-colors -mx-2 px-2"
+                  className="grid grid-cols-[3.5rem_1fr_auto] sm:grid-cols-[4rem_1fr_8rem_8rem_8rem] items-center gap-4 border-b border-steel-line py-4 hover:bg-steel-line transition-colors -mx-2 px-2"
                 >
                   <span
                     className={`font-display text-2xl ${

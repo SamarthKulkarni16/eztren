@@ -53,7 +53,7 @@ export default async function ArchiveList({
           <input
             type="text"
             placeholder="Search by topic, player, or tag&hellip;"
-            className="w-full max-w-md font-data text-sm bg-transparent border-b border-steel-line py-3 focus:border-signal outline-none placeholder:text-steel"
+            className="w-full max-w-md font-data text-base bg-transparent border-b border-steel-line py-3 focus:border-signal outline-none placeholder:text-steel"
             disabled
           />
         </div>

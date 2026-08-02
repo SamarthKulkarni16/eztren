@@ -98,7 +98,7 @@ export default function Nav() {
               onClick={() => setMenuOpen((open) => !open)}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               aria-expanded={menuOpen}
-              className="md:hidden p-2 -mr-2 text-bone"
+              className="md:hidden p-3 -mr-3 text-bone"
             >
               {menuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>

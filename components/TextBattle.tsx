@@ -182,7 +182,7 @@ export default function TextBattle({
           }}
           placeholder=""
           rows={2}
-          className="flex-1 bg-transparent border border-steel-line p-3 text-[15px] focus:border-signal outline-none resize-none"
+          className="flex-1 bg-transparent border border-steel-line p-3 text-[16px] focus:border-signal outline-none resize-none"
         />
         <button
           onClick={handleSend}
