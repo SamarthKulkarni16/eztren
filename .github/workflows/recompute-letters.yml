@@ -8,10 +8,15 @@ on:
     - cron: "0 3 * * 1"
   workflow_dispatch: {}   # lets you trigger it manually from the Actions tab
 
+permissions:
+  contents: write
+
 jobs:
   recompute:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Call recompute_letters RPC
         run: |
           response=$(curl -s -o /tmp/body.txt -w "%{http_code}" -X POST \
@@ -26,6 +31,16 @@ jobs:
           cat /tmp/body.txt
 
           if [ "$response" -ge 300 ]; then
-            echo "::error::recompute_letters failed - HTTP $response - $(cat /tmp/body.txt)"
+            echo "recompute_letters call failed with HTTP $response"
+            {
+              echo "HTTP status: $response"
+              echo
+              cat /tmp/body.txt
+            } > .github/last-recompute-error.txt
+            git config user.email "actions@github.com"
+            git config user.name "github-actions"
+            git add .github/last-recompute-error.txt
+            git commit -m "debug: recompute_letters failure output [skip ci]"
+            git push
             exit 1
           fi
