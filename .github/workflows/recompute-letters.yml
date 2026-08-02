@@ -19,6 +19,7 @@ jobs:
             -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
+            -H "Content-Profile: eztren" \
             -d '{}')
 
           echo "HTTP status: $response"
