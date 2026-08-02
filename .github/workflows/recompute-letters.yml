@@ -26,6 +26,6 @@ jobs:
           cat /tmp/body.txt
 
           if [ "$response" -ge 300 ]; then
-            echo "recompute_letters call failed"
+            echo "::error::recompute_letters failed - HTTP $response - $(cat /tmp/body.txt)"
             exit 1
           fi
