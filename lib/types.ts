@@ -15,6 +15,11 @@ export interface Player {
   rankSince: string;
   country: string;
   bio?: string;
+  // True for one of Eztren's rotating AI personalities rather than a
+  // registered human. AI players sit outside the human rank ladder (see
+  // supabase/031_ai_opponents.sql) — always check this before treating
+  // rank/league/wins as meaningful for a given Player.
+  isAi?: boolean;
 }
 
 export interface RankHistoryEntry {

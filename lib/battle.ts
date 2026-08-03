@@ -150,6 +150,50 @@ export function pollForMatch(
   };
 }
 
+// If a player is still sitting in the queue after 60 seconds, the caller
+// (BattleLobby) calls this to pull in one of Eztren's 100 AI personalities
+// instead. Server-side (match_with_ai in 031_ai_opponents.sql) atomically
+// claims and removes the queue row first — if the player already matched
+// with a human or left in the last moment, this just returns null and the
+// caller does nothing. p_topic is picked client-side from the same topic
+// pool used for the normal negotiation-timeout fallback.
+export async function matchWithAi(
+  playerId: string,
+  format: BattleFormat,
+  topic: string
+): Promise<string | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data, error } = await supabase.rpc("match_with_ai", {
+    p_player_id: playerId,
+    p_format: format,
+    p_topic: topic,
+  });
+  if (error || !data) return null;
+  return data as string;
+}
+
+// Fire-and-forget from the human's client right after they send a turn
+// against an AI opponent — asks the server to generate and insert the AI
+// personality's reply (see app/api/battles/ai-turn/route.ts). The reply
+// itself lands through the normal battle_turns realtime subscription, same
+// as any human turn would.
+export async function requestAiTurn(battleId: string): Promise<void> {
+  if (!supabase) return;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return;
+  try {
+    const res = await fetch("/api/battles/ai-turn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ battleId }),
+    });
+    if (!res.ok) throw new Error("ai-turn request failed");
+  } catch {
+    throw new Error("ai-turn request failed");
+  }
+}
+
 // ── Challenges ──
 
 export async function sendChallenge(

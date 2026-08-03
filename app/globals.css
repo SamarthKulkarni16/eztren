@@ -33,6 +33,10 @@
   --steel: #6e6e6e;
   --steel-line: #232323;
   --gold: #d4af37;
+  /* Distinct accent for AI personalities — deliberately not signal (human
+     wins) or gold (top human rank), so a personality reads as its own kind
+     of thing rather than a variant of an existing status. */
+  --ai-glow: #8b5cf6;
 }
 
 @theme inline {
@@ -52,6 +56,7 @@
   --color-steel: var(--steel);
   --color-steel-line: var(--steel-line);
   --color-gold: var(--gold);
+  --color-ai-glow: var(--ai-glow);
 
   --font-display: "Fraunces", serif;
   --font-body: "IBM Plex Sans", sans-serif;

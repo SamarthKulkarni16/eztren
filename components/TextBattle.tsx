@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getTurns, sendTurn, subscribeToTurns, endBattle, createTypingChannel } from "@/lib/battle";
+import { getTurns, sendTurn, subscribeToTurns, endBattle, createTypingChannel, requestAiTurn } from "@/lib/battle";
 import { Battle, BattleTurn, Player } from "@/lib/types";
 import EndBattleControl from "@/components/EndBattleControl";
 
@@ -107,8 +107,19 @@ export default function TextBattle({
     setSending(true);
     setDraft("");
     const res = await sendTurn(battle.id, profile.id, content);
-    if (!res.ok) setDraft(content); // put it back so nothing's lost
+    if (!res.ok) {
+      setDraft(content); // put it back so nothing's lost
+      setSending(false);
+      return;
+    }
     setSending(false);
+    if (opponent?.isAi) {
+      // No second browser is going to send a typing broadcast for an AI
+      // opponent — drive the same indicator directly, and let the normal
+      // turn-arrival handling above clear it once the reply lands.
+      setOpponentTyping(true);
+      requestAiTurn(battle.id).catch(() => setOpponentTyping(false));
+    }
   }
 
   const lowTime = secondsLeft !== null && secondsLeft <= 30;

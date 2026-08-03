@@ -30,6 +30,7 @@ export async function getPlayers(): Promise<Player[]> {
       rankSince: p.rank_since,
       country: p.country,
       bio: p.bio ?? undefined,
+      isAi: p.is_ai ?? false,
     })
   );
 }
@@ -297,6 +298,7 @@ export async function getPlayerById(id: string): Promise<Player | null> {
     rankSince: data.rank_since,
     country: data.country,
     bio: data.bio ?? undefined,
+    isAi: data.is_ai ?? false,
   };
 }
 
@@ -392,6 +394,7 @@ export async function getMyPlayer(): Promise<Player | null> {
     rankSince: data.rank_since,
     country: data.country,
     bio: data.bio ?? undefined,
+    isAi: data.is_ai ?? false,
   };
 }
 

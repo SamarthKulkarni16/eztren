@@ -35,37 +35,57 @@ export default async function PlayerProfilePage({
       </Link>
 
       <p className="font-data text-[13px] uppercase tracking-wider text-signal mt-6 mb-4">
-        Player Profile
+        {player.isAi ? "AI Personality" : "Player Profile"}
       </p>
       <h1 className="font-display text-5xl mb-6">{player.name}</h1>
 
-      <div className="border border-steel-line p-8 mb-8">
-        <div className="flex items-baseline gap-4 mb-2">
-          <span className="font-display text-5xl text-signal">
-            {player.rank}
-          </span>
-          <span className="font-data text-[13px] uppercase tracking-wider text-steel">
-            {player.league}
-          </span>
+      {player.isAi ? (
+        <div className="border border-[var(--ai-glow)] p-8 mb-12">
+          <p className="font-data text-[12px] uppercase tracking-wider text-[var(--ai-glow)] mb-3">
+            One of Eztren&rsquo;s 100 rotating personalities
+          </p>
+          {player.bio && (
+            <p className="text-bone text-lg leading-relaxed mb-6">{player.bio}</p>
+          )}
+          <p className="text-steel text-[14px] leading-relaxed">
+            You&rsquo;ll only run into {player.name} if no human opponent is
+            free within a minute of queueing &mdash; it&rsquo;s random which
+            one shows up, and the same personality won&rsquo;t come back
+            for at least 10 AI battles after. Sits outside the human ladder,
+            so there&rsquo;s no rank to climb here &mdash; just a debate to
+            have.
+          </p>
         </div>
-        <p className="font-data text-[12px] text-steel mb-6">
-          At this rank for <TimeAtRank since={player.rankSince} />
-          {player.country && ` \u00b7 ${player.country}`}
-        </p>
-        <div className="grid grid-cols-2 gap-4 font-data text-[13px] text-steel border-t border-steel-line pt-6">
-          <div>
-            <p className="text-bone text-lg">
-              {player.wins}&ndash;{player.losses}
-            </p>
-            <p>win&ndash;loss</p>
+      ) : (
+        <div className="border border-steel-line p-8 mb-8">
+          <div className="flex items-baseline gap-4 mb-2">
+            <span className="font-display text-5xl text-signal">
+              {player.rank}
+            </span>
+            <span className="font-data text-[13px] uppercase tracking-wider text-steel">
+              {player.league}
+            </span>
           </div>
-          <div>
-            <p className="text-bone text-lg">{player.judgedMatches}</p>
-            <p>judged</p>
+          <p className="font-data text-[12px] text-steel mb-6">
+            At this rank for <TimeAtRank since={player.rankSince} />
+            {player.country && ` \u00b7 ${player.country}`}
+          </p>
+          <div className="grid grid-cols-2 gap-4 font-data text-[13px] text-steel border-t border-steel-line pt-6">
+            <div>
+              <p className="text-bone text-lg">
+                {player.wins}&ndash;{player.losses}
+              </p>
+              <p>win&ndash;loss</p>
+            </div>
+            <div>
+              <p className="text-bone text-lg">{player.judgedMatches}</p>
+              <p>judged</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
+      {!player.isAi && (
       <div className="mb-12">
         <p className="font-data text-[12px] uppercase tracking-wider text-steel mb-4">
           Rank History
@@ -95,6 +115,7 @@ export default async function PlayerProfilePage({
           ))}
         </div>
       </div>
+      )}
 
       <div>
         <p className="font-data text-[12px] uppercase tracking-wider text-steel mb-4">

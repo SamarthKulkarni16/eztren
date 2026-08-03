@@ -151,8 +151,8 @@ export default function WatchBattlePage() {
         {playerA && playerB && (
           <div className="mb-10">
             <VSCard
-              playerA={{ id: playerA.id, name: playerA.name, rank: playerA.rank, league: playerA.league }}
-              playerB={{ id: playerB.id, name: playerB.name, rank: playerB.rank, league: playerB.league }}
+              playerA={{ id: playerA.id, name: playerA.name, rank: playerA.rank, league: playerA.league, isAi: playerA.isAi }}
+              playerB={{ id: playerB.id, name: playerB.name, rank: playerB.rank, league: playerB.league, isAi: playerB.isAi }}
               status="live"
               topic={battle.topic}
             />

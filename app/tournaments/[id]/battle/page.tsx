@@ -21,5 +21,5 @@ export default async function TournamentBattlePage({
   // showing a dead matchmaking screen.
   if (t.status === "completed") redirect(`/tournaments/${t.slug}`);
 
-  return <BattleLobby tournamentId={t.id} tournamentName={t.name} />;
+  return <BattleLobby tournamentId={t.id} tournamentName={t.name} tournamentTopics={t.topics} />;
 }

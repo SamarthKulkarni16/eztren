@@ -110,8 +110,8 @@ export default async function ArchiveList({
               {a && b && (
                 <div className="mb-5">
                   <VSCard
-                    playerA={{ id: a.id, name: a.name, rank: a.rank, league: a.league }}
-                    playerB={{ id: b.id, name: b.name, rank: b.rank, league: b.league }}
+                    playerA={{ id: a.id, name: a.name, rank: a.rank, league: a.league, isAi: a.isAi }}
+                    playerB={{ id: b.id, name: b.name, rank: b.rank, league: b.league, isAi: b.isAi }}
                     status="completed"
                     winnerId={m.winnerId}
                     compact

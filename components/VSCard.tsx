@@ -7,7 +7,8 @@ export interface VSCardPlayer {
   id: string;
   name: string;
   rank: string;
-  league: League;
+  league: League | null;
+  isAi?: boolean;
 }
 
 interface VSCardProps {
@@ -44,18 +45,20 @@ function Side({
     >
       <span
         className="font-versus font-extrabold uppercase leading-[0.85] tracking-tight text-[13vw] sm:text-4xl md:text-5xl truncate max-w-full"
-        style={{ color: isWinner ? "var(--signal)" : "var(--bone)" }}
+        style={{ color: player.isAi ? "var(--ai-glow)" : isWinner ? "var(--signal)" : "var(--bone)" }}
       >
         {player.name}
       </span>
       <span
         className={`font-data text-xs sm:text-sm mt-2 px-2 py-0.5 border ${
-          top
+          player.isAi
+            ? "border-[var(--ai-glow)] text-[var(--ai-glow)]"
+            : top
             ? "border-[var(--gold)] text-[var(--gold)]"
             : "border-steel-line text-steel"
         }`}
       >
-        RANK {player.rank}
+        {player.isAi ? "AI Personality" : `RANK ${player.rank}`}
       </span>
     </div>
   );

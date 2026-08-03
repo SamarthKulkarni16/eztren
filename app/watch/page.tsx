@@ -59,8 +59,8 @@ export default function WatchPage() {
             return (
               <VSCard
                 key={b.id}
-                playerA={{ id: a.id, name: a.name, rank: a.rank, league: a.league }}
-                playerB={{ id: bp.id, name: bp.name, rank: bp.rank, league: bp.league }}
+                playerA={{ id: a.id, name: a.name, rank: a.rank, league: a.league, isAi: a.isAi }}
+                playerB={{ id: bp.id, name: bp.name, rank: bp.rank, league: bp.league, isAi: bp.isAi }}
                 status="live"
                 topic={b.topic ?? `${b.format === "text" ? "Text" : "Audio"} battle`}
                 href={`/watch/${b.id}`}

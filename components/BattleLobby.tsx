@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -10,6 +10,7 @@ import {
   leaveQueue,
   isInQueue,
   pollForMatch,
+  matchWithAi,
   sendChallenge,
   getMyChallenges,
   acceptChallenge,
@@ -19,17 +20,28 @@ import {
   subscribeToOutgoingChallengeUpdates,
 } from "@/lib/battle";
 import { Player, BattleFormat, BattleChallenge } from "@/lib/types";
+import { DEBATE_TOPICS } from "@/lib/topics";
+
+// How long a player waits in the open queue before being offered an AI
+// personality instead of an empty room. Text battles only — see
+// supabase/031_ai_opponents.sql for why audio isn't wired up yet.
+const AI_FALLBACK_MS = 60_000;
 
 // Shared lobby UI for both /battle (open queue) and /tournaments/[id]/battle
 // (scoped queue). Passing a tournamentId scopes queueing, challenges, and
 // the resulting battle to that tournament — see match_queue() in
 // 025_tournament_battles.sql for how the scoping is enforced server-side.
+// tournamentTopics, if provided, is used instead of the generic
+// DEBATE_TOPICS pool when picking a topic for an AI personality battle —
+// same pool TopicNegotiation falls back to for human-human negotiation.
 export default function BattleLobby({
   tournamentId = null,
   tournamentName,
+  tournamentTopics,
 }: {
   tournamentId?: string | null;
   tournamentName?: string;
+  tournamentTopics?: string[];
 }) {
   const router = useRouter();
   const [profile, setProfile] = useState<Player | null>(null);
@@ -41,6 +53,7 @@ export default function BattleLobby({
   const [queueSince, setQueueSince] = useState<string | null>(null);
   const [stopPolling, setStopPolling] = useState<(() => void) | null>(null);
   const [dotCount, setDotCount] = useState(1);
+  const aiFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [search, setSearch] = useState("");
@@ -122,19 +135,49 @@ export default function BattleLobby({
     setInQueue(true);
     setQueueSince(since);
     const stop = pollForMatch(profile.id, format, since, (battle) => {
+      if (aiFallbackRef.current) clearTimeout(aiFallbackRef.current);
       router.push(`/battle/${battle.id}`);
     });
     setStopPolling(() => stop);
+
+    // Text battles only, for now — an AI personality can't join a live
+    // Daily.co audio room. See supabase/031_ai_opponents.sql.
+    if (format === "text") {
+      const topicPool = tournamentTopics && tournamentTopics.length > 0 ? tournamentTopics : DEBATE_TOPICS;
+      const topic = topicPool[Math.floor(Math.random() * topicPool.length)];
+      aiFallbackRef.current = setTimeout(async () => {
+        const battleId = await matchWithAi(profile.id, format, topic);
+        // null means the player already matched with a human, or left the
+        // queue, in the last moment — the poll/leave handlers already
+        // covered that case, nothing more to do here.
+        if (battleId) {
+          stop();
+          setStopPolling(null);
+          setInQueue(false);
+          router.push(`/battle/${battleId}`);
+        }
+      }, AI_FALLBACK_MS);
+    }
   }
 
   async function handleLeaveQueue() {
     if (!profile) return;
     stopPolling?.();
     setStopPolling(null);
+    if (aiFallbackRef.current) {
+      clearTimeout(aiFallbackRef.current);
+      aiFallbackRef.current = null;
+    }
     setQueueError(null);
     await leaveQueue(profile.id, format);
     setInQueue(false);
   }
+
+  useEffect(() => {
+    return () => {
+      if (aiFallbackRef.current) clearTimeout(aiFallbackRef.current);
+    };
+  }, []);
 
   async function handleChallenge(opponentId: string) {
     if (!profile || sendingTo) return;
@@ -156,6 +199,7 @@ export default function BattleLobby({
   const filteredPlayers = players.filter(
     (p) =>
       p.id !== profile?.id &&
+      !p.isAi && // AI personalities only ever show up via the queue timeout, never as a direct-challenge target
       (p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.rank.toLowerCase() === search.toLowerCase())
   );
@@ -230,6 +274,15 @@ export default function BattleLobby({
               You&rsquo;ll be moved into the battle room automatically the
               moment someone else queues up for {format}
               {isPrivate ? ", also looking for a private match" : ""}.
+              {format === "text" && (
+                <>
+                  {" "}
+                  No one free within a minute, and you&rsquo;ll drop into a
+                  live debate with one of Eztren&rsquo;s 100 personalities
+                  instead &mdash; each with its own way of arguing. Worth
+                  sticking around just to see which one shows up.
+                </>
+              )}
             </p>
             <button
               onClick={handleLeaveQueue}

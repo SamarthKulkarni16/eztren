@@ -116,8 +116,8 @@ export default function MatchPage() {
       {a && b && (
         <div className={`mb-8 ${justRevealed && match.aiSummary ? "animate-verdict-in" : ""}`}>
           <VSCard
-            playerA={{ id: a.id, name: a.name, rank: a.rank, league: a.league }}
-            playerB={{ id: b.id, name: b.name, rank: b.rank, league: b.league }}
+            playerA={{ id: a.id, name: a.name, rank: a.rank, league: a.league, isAi: a.isAi }}
+            playerB={{ id: b.id, name: b.name, rank: b.rank, league: b.league, isAi: b.isAi }}
             status={match.aiSummary ? "completed" : "live"}
             winnerId={match.winnerId}
             topic={null}

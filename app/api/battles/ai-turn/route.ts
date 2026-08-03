@@ -1,0 +1,188 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+// Generates one reply from an AI personality and inserts it as the next
+// battle turn. Called fire-and-forget from TextBattle.tsx right after the
+// human sends their own turn against an AI opponent.
+//
+// Two Supabase clients are used deliberately:
+//   - `asHuman`, using the anon key + the caller's own auth token, so every
+//     read (battle, turns, player names) goes through normal RLS as that
+//     player — it can only ever see battles it's actually part of.
+//   - `asService`, using the service-role key, ONLY to read the
+//     personality's system_prompt from eztren.ai_personalities. That table
+//     has no anon/authenticated grant at all (see 031_ai_opponents.sql) —
+//     the prompt tells the model to never break character or reveal it's
+//     an AI, and that's meaningless if any signed-in player could read it
+//     straight out of the table via the client SDK.
+// The actual insert goes through insert_ai_turn(), a security-definer RPC
+// called via `asHuman` — it does its own authorization check (caller must
+// be a participant, opponent must actually be AI) before writing as the
+// AI's player_id, which RLS alone would never allow a human's client to do.
+
+const GEMINI_MODEL = "gemini-3.5-flash";
+
+async function callGemini(apiKey: string, prompt: string): Promise<string> {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 400 },
+      }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error?.message ?? "Gemini request failed");
+  }
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    const finishReason = data.candidates?.[0]?.finishReason;
+    throw new Error(
+      finishReason ? `Gemini returned no content (finishReason: ${finishReason})` : "Gemini returned no content"
+    );
+  }
+  return text.trim();
+}
+
+export async function POST(req: NextRequest) {
+  const { battleId } = await req.json();
+  if (!battleId) {
+    return NextResponse.json({ error: "battleId required" }, { status: 400 });
+  }
+
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+
+  if (!url || !anonKey || !serviceKey || !geminiKey) {
+    return NextResponse.json({ error: "Server not configured" }, { status: 500 });
+  }
+
+  const asHuman = createClient(url, anonKey, {
+    db: { schema: "eztren" },
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const {
+    data: { user },
+  } = await asHuman.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+
+  const { data: battle } = await asHuman
+    .from("battles")
+    .select("*")
+    .eq("id", battleId)
+    .maybeSingle();
+  if (!battle) {
+    return NextResponse.json({ error: "Battle not found" }, { status: 404 });
+  }
+  if (battle.status !== "waiting" && battle.status !== "live") {
+    return NextResponse.json({ status: "not_open" });
+  }
+
+  const { data: humanPlayer } = await asHuman
+    .from("players")
+    .select("id, name")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!humanPlayer) {
+    return NextResponse.json({ error: "Player not found" }, { status: 404 });
+  }
+
+  const aiPlayerId =
+    battle.player_a_id === humanPlayer.id ? battle.player_b_id : battle.player_a_id;
+
+  const { data: aiPlayer } = await asHuman
+    .from("players")
+    .select("id, name, is_ai, ai_personality_id")
+    .eq("id", aiPlayerId)
+    .maybeSingle();
+  if (!aiPlayer || !aiPlayer.is_ai) {
+    return NextResponse.json({ error: "Opponent is not an AI personality" }, { status: 400 });
+  }
+
+  const { data: turns } = await asHuman
+    .from("battle_turns")
+    .select("*")
+    .eq("battle_id", battleId)
+    .order("created_at", { ascending: true });
+
+  // Idempotency guard: if the AI already replied to the latest human turn
+  // (e.g. this route got called twice — a fast retry, a duplicate effect
+  // firing in the browser), don't generate a second reply.
+  const lastTurn = turns && turns.length > 0 ? turns[turns.length - 1] : null;
+  if (lastTurn && lastTurn.player_id === aiPlayer.id) {
+    return NextResponse.json({ status: "already_replied" });
+  }
+  if (!lastTurn || lastTurn.player_id !== humanPlayer.id) {
+    // Nothing for the AI to respond to yet — it never opens first.
+    return NextResponse.json({ status: "nothing_to_reply_to" });
+  }
+
+  const asService = createClient(url, serviceKey, { db: { schema: "eztren" } });
+  const { data: personality } = await asService
+    .from("ai_personalities")
+    .select("system_prompt")
+    .eq("id", aiPlayer.ai_personality_id)
+    .maybeSingle();
+  if (!personality) {
+    return NextResponse.json({ error: "Personality not found" }, { status: 500 });
+  }
+
+  const transcript = (turns ?? [])
+    .map((t) => `${t.player_id === humanPlayer.id ? humanPlayer.name : aiPlayer.name}: ${t.content}`)
+    .join("\n");
+
+  const prompt = `${personality.system_prompt}
+
+[DEBATE TOPIC]
+${battle.topic ?? "Open Debate"}
+
+[TRANSCRIPT SO FAR]
+${transcript}
+
+Respond now with your next turn only, as ${aiPlayer.name}. Do not include your name or any label before it — just the message itself.`;
+
+  let replyText: string;
+  try {
+    replyText = await callGemini(geminiKey, prompt);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Gemini request failed" },
+      { status: 502 }
+    );
+  }
+
+  // Strip a leading "Name:" label if the model added one anyway, and any
+  // stray quote-wrapping — belt and suspenders on top of the instruction.
+  replyText = replyText
+    .replace(new RegExp(`^\\s*${aiPlayer.name}\\s*:\\s*`, "i"), "")
+    .replace(/^"([\s\S]*)"$/, "$1")
+    .trim();
+
+  if (!replyText) {
+    return NextResponse.json({ error: "Empty reply generated" }, { status: 502 });
+  }
+
+  const { data: inserted, error: insertError } = await asHuman.rpc("insert_ai_turn", {
+    p_battle_id: battleId,
+    p_content: replyText,
+  });
+  if (insertError) {
+    return NextResponse.json({ error: insertError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ status: "ok", turn: inserted });
+}

@@ -95,8 +95,8 @@ export default function BattleRoomPage() {
       {opponent && (
         <div className="mb-10">
           <VSCard
-            playerA={{ id: profile.id, name: profile.name, rank: profile.rank, league: profile.league }}
-            playerB={{ id: opponent.id, name: opponent.name, rank: opponent.rank, league: opponent.league }}
+            playerA={{ id: profile.id, name: profile.name, rank: profile.rank, league: profile.league, isAi: profile.isAi }}
+            playerB={{ id: opponent.id, name: opponent.name, rank: opponent.rank, league: opponent.league, isAi: opponent.isAi }}
             status={toVSCardStatus(battle.status)}
             topic={battle.topic}
           />
