@@ -1,37 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { callPlayerBot } from "@/lib/ai-players";
 
 // Called right after a human proposes a topic against an AI opponent (see
-// TopicNegotiation.tsx) — asks Gemini, using the personality's own system
-// prompt, to actually decide whether to agree or reject. Not an auto-accept:
-// a personality that's picky about its subject matter can and does reject
-// a topic that doesn't fit, same as a human might.
+// TopicNegotiation.tsx) — asks the AI player, using the personality's own
+// system prompt, to actually decide whether to agree or reject. Not an
+// auto-accept: a personality that's picky about its subject matter can and
+// does reject a topic that doesn't fit, same as a human might.
+//
+// This is an in-character player decision, not a neutral judging call, so
+// it goes through the same Groq -> Cerebras -> OpenRouter chain as
+// ai-turn/route.ts (lib/ai-players.ts) rather than Gemini.
 //
 // Same two-client pattern as /api/battles/ai-turn: `asHuman` (anon key +
 // caller's own token) for every RLS-scoped read/write, `asService`
 // (service-role key) only to read the personality's system_prompt, which
 // has no anon/authenticated grant at all.
-
-const GEMINI_MODEL = "gemini-3.5-flash";
-
-async function askGemini(apiKey: string, prompt: string): Promise<string> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 5 },
-      }),
-    }
-  );
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? "Gemini request failed");
-  }
-  return (data.candidates?.[0]?.content?.parts?.[0]?.text ?? "").trim();
-}
 
 export async function POST(req: NextRequest) {
   const { battleId, proposalId } = await req.json();
@@ -47,9 +31,8 @@ export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
 
-  if (!url || !anonKey || !serviceKey || !geminiKey) {
+  if (!url || !anonKey || !serviceKey) {
     return NextResponse.json({ error: "Server not configured" }, { status: 500 });
   }
 
@@ -121,11 +104,13 @@ Decide, in character as ${aiPlayer.name}, whether you're willing to debate this 
 
   let decisionText: string;
   try {
-    decisionText = await askGemini(geminiKey, prompt);
+    const { text } = await callPlayerBot(prompt, 5);
+    decisionText = text;
   } catch {
-    // If Gemini is unreachable, default to accepting rather than stalling
-    // the human's negotiation window — the 60s timeout fallback exists,
-    // but there's no reason to force it when we can just say yes.
+    // If every player-bot provider is unreachable/exhausted, default to
+    // accepting rather than stalling the human's negotiation window — the
+    // 60s timeout fallback exists, but there's no reason to force it when
+    // we can just say yes.
     decisionText = "AGREE";
   }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { callPlayerBot } from "@/lib/ai-players";
 
 // Generates one reply from an AI personality and inserts it as the next
 // battle turn. Called fire-and-forget from TextBattle.tsx right after the
@@ -19,34 +20,11 @@ import { createClient } from "@supabase/supabase-js";
 // called via `asHuman` — it does its own authorization check (caller must
 // be a participant, opponent must actually be AI) before writing as the
 // AI's player_id, which RLS alone would never allow a human's client to do.
-
-const GEMINI_MODEL = "gemini-3.5-flash";
-
-async function callGemini(apiKey: string, prompt: string): Promise<string> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 70 },
-      }),
-    }
-  );
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? "Gemini request failed");
-  }
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    const finishReason = data.candidates?.[0]?.finishReason;
-    throw new Error(
-      finishReason ? `Gemini returned no content (finishReason: ${finishReason})` : "Gemini returned no content"
-    );
-  }
-  return text.trim();
-}
+//
+// Text generation for the AI player itself goes through the Groq ->
+// Cerebras -> OpenRouter fallback chain (lib/ai-players.ts), not Gemini —
+// Gemini is reserved for judging. See lib/ai-players.ts for how the
+// mid-battle fallback works.
 
 export async function POST(req: NextRequest) {
   const { battleId } = await req.json();
@@ -62,9 +40,8 @@ export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
 
-  if (!url || !anonKey || !serviceKey || !geminiKey) {
+  if (!url || !anonKey || !serviceKey) {
     return NextResponse.json({ error: "Server not configured" }, { status: 500 });
   }
 
@@ -160,10 +137,11 @@ Respond now with your next turn only, as ${aiPlayer.name}. Do not include your n
 
   let replyText: string;
   try {
-    replyText = await callGemini(geminiKey, prompt);
+    const { text } = await callPlayerBot(prompt, 70);
+    replyText = text;
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Gemini request failed" },
+      { error: err instanceof Error ? err.message : "AI player-bot request failed" },
       { status: 502 }
     );
   }

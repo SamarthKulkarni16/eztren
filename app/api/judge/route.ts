@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { callJudgeModel, type JudgeAudio } from "@/lib/ai-judge";
 
-// The only place GEMINI_API_KEY and DAILY_API_KEY get touched — both are
-// server-only env vars, never shipped to the browser.
-
-const GEMINI_MODEL = "gemini-3.5-flash";
+// Gemini is the primary judge (and the only option for audio recordings —
+// see the inline-audio path below), with OpenRouter as fallback if Gemini
+// is unreachable or exhausted. See lib/ai-judge.ts. DAILY_API_KEY is also
+// only touched here, for pulling the recording.
 
 function buildPrompt(
   nameA: string,
@@ -62,48 +63,7 @@ Respond with ONLY a JSON object, no other text, in this exact shape:
 }`;
 }
 
-async function callGemini(apiKey: string, parts: any[]) {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: { responseMimeType: "application/json" },
-      }),
-    }
-  );
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(data.error?.message ?? "Gemini request failed");
-  }
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    const finishReason = data.candidates?.[0]?.finishReason;
-    throw new Error(
-      finishReason ? `Gemini returned no content (finishReason: ${finishReason})` : "Gemini returned no content"
-    );
-  }
-
-  try {
-    return JSON.parse(text) as { winner: "A" | "B" | "tie"; summary: string; reasoning: string };
-  } catch {
-    // responseMimeType:"application/json" usually guarantees clean JSON, but
-    // if Gemini ever wraps it in markdown fences or stray text, salvage the
-    // JSON object instead of failing the whole judging run.
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error(`Gemini returned unparseable content: ${text.slice(0, 200)}`);
-    try {
-      return JSON.parse(match[0]) as { winner: "A" | "B" | "tie"; summary: string; reasoning: string };
-    } catch {
-      throw new Error(`Gemini returned malformed JSON: ${text.slice(0, 200)}`);
-    }
-  }
-}
+type Verdict = { winner: "A" | "B" | "tie"; summary: string; reasoning: string };
 
 export async function POST(req: NextRequest) {
   const { matchId } = await req.json();
@@ -119,9 +79,10 @@ export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
   const dailyKey = process.env.DAILY_API_KEY;
 
-  if (!url || !anonKey || !geminiKey) {
+  if (!url || !anonKey || (!geminiKey && !openrouterKey)) {
     return NextResponse.json({ error: "Server not configured" }, { status: 500 });
   }
 
@@ -279,14 +240,15 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    const parts: any[] = [{ text: prompt }];
-    if (isAudio && audioBase64) {
-      parts.push({ inlineData: { mimeType: audioMimeType, data: audioBase64 } });
-    } else {
-      parts.push({ text: `\n\nTranscript:\n${match.transcript}` });
-    }
+    const audio: JudgeAudio | undefined =
+      isAudio && audioBase64 ? { base64: audioBase64, mimeType: audioMimeType } : undefined;
+    const fullPrompt = audio ? prompt : `${prompt}\n\nTranscript:\n${match.transcript}`;
 
-    const verdict = await callGemini(geminiKey, parts);
+    const { result: verdict } = await callJudgeModel<Verdict>(fullPrompt, {
+      geminiKey,
+      openrouterKey,
+      audio,
+    });
 
     const winnerPlayerId =
       verdict.winner === "A"

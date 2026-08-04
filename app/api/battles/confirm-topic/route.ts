@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { callJudgeModel } from "@/lib/ai-judge";
 
 // Runs after two players mutually agree on a topic in a tournament-scoped
 // battle. If the battle's tournament has a core_topic (i.e. it's an
@@ -11,16 +12,16 @@ import { createClient } from "@supabase/supabase-js";
 //
 // Non-tournament battles, and tournament battles whose tournament has no
 // core_topic (flagship/promotion), skip the AI call entirely and accept
-// immediately — no reason to spend a Gemini call gating an open debate.
+// immediately — no reason to spend a model call gating an open debate.
+//
+// This is a neutral moderation call, same category as /api/judge, so it
+// goes through the Gemini -> OpenRouter judge chain (lib/ai-judge.ts)
+// rather than the player-bot chain.
 
-const GEMINI_MODEL = "gemini-3.5-flash";
+type RelevanceVerdict = { related: boolean; reason: string };
 
-async function checkRelevance(
-  apiKey: string,
-  proposedTopic: string,
-  coreTopic: string
-): Promise<{ related: boolean; reason: string }> {
-  const prompt = `You are a strict but fair moderator for a debate sport's "Emergency League" — a temporary tournament created to hold high-quality debate on one specific real-world subject while it's still unfolding.
+function buildRelevancePrompt(proposedTopic: string, coreTopic: string): string {
+  return `You are a strict but fair moderator for a debate sport's "Emergency League" — a temporary tournament created to hold high-quality debate on one specific real-world subject while it's still unfolding.
 
 The subject this league exists for: "${coreTopic}"
 
@@ -33,29 +34,6 @@ Respond with ONLY a JSON object, no other text:
   "related": true | false,
   "reason": "one short sentence, plain words, explaining the call"
 }`;
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" },
-      }),
-    }
-  );
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message ?? "Gemini request failed");
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini returned no content");
-  try {
-    return JSON.parse(text);
-  } catch {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("Gemini returned unparseable content");
-    return JSON.parse(match[0]);
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -72,6 +50,7 @@ export async function POST(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
   if (!url || !anonKey) {
     return NextResponse.json({ error: "Server not configured" }, { status: 500 });
   }
@@ -125,7 +104,7 @@ export async function POST(req: NextRequest) {
 
   // No tournament, or a tournament with no single core subject (flagship /
   // promotion) — accept straight away, same as the pre-existing behavior.
-  if (!coreTopic || !geminiKey) {
+  if (!coreTopic || (!geminiKey && !openrouterKey)) {
     const { error } = await supabase.rpc("respond_to_topic_proposal", {
       proposal_id: proposalId,
       accept: true,
@@ -135,7 +114,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const verdict = await checkRelevance(geminiKey, proposal.topic, coreTopic);
+    const { result: verdict } = await callJudgeModel<RelevanceVerdict>(
+      buildRelevancePrompt(proposal.topic, coreTopic),
+      { geminiKey, openrouterKey }
+    );
 
     if (verdict.related) {
       const { error } = await supabase.rpc("respond_to_topic_proposal", {
