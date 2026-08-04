@@ -7,6 +7,7 @@ import {
   respondToTopicProposal,
   assignRandomTopic,
   subscribeToTopicProposals,
+  requestAiTopicResponse,
 } from "@/lib/battle";
 import { supabase } from "@/lib/supabase";
 import { DEBATE_TOPICS } from "@/lib/topics";
@@ -52,6 +53,9 @@ export default function TopicNegotiation({
   const timeoutFiredRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Proposal ids already handed to the AI for a decision — guards against
+  // asking twice (e.g. a page reload landing on the same pending proposal).
+  const aiRequestedRef = useRef<Set<string>>(new Set());
   // Captured once, at first render, so the countdown always starts at a
   // full 60 regardless of how long the route/data fetch took to land here.
   const startRef = useRef(Date.now());
@@ -73,6 +77,21 @@ export default function TopicNegotiation({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [proposals]);
+
+  // Against an AI opponent, nobody's second browser is going to click
+  // Agree/Reject — so whenever the human has a proposal sitting pending,
+  // ask the server (Gemini, using the personality's own judgment) to
+  // actually decide. Runs off proposal state rather than only right after
+  // handlePropose so a reload mid-negotiation still gets a response.
+  useEffect(() => {
+    if (!opponent?.isAi) return;
+    for (const p of proposals) {
+      if (p.status === "pending" && p.proposedBy === profile.id && !aiRequestedRef.current.has(p.id)) {
+        aiRequestedRef.current.add(p.id);
+        requestAiTopicResponse(battle.id, p.id);
+      }
+    }
+  }, [proposals, opponent?.isAi, profile.id, battle.id]);
 
   // 60-second window measured from the moment this negotiation screen
   // actually mounted on this player's device (not battle.createdAt, which

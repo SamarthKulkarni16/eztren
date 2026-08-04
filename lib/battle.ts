@@ -152,21 +152,20 @@ export function pollForMatch(
 
 // If a player is still sitting in the queue after 60 seconds, the caller
 // (BattleLobby) calls this to pull in one of Eztren's 100 AI personalities
-// instead. Server-side (match_with_ai in 031_ai_opponents.sql) atomically
-// claims and removes the queue row first — if the player already matched
-// with a human or left in the last moment, this just returns null and the
-// caller does nothing. p_topic is picked client-side from the same topic
-// pool used for the normal negotiation-timeout fallback.
+// instead. Server-side (match_with_ai in 031_ai_opponents.sql /
+// 032_ai_topic_negotiation.sql) atomically claims and removes the queue
+// row first — if the player already matched with a human or left in the
+// last moment, this just returns null and the caller does nothing. The
+// resulting battle starts with no topic set — it goes through the exact
+// same negotiation screen as a human-human battle.
 export async function matchWithAi(
   playerId: string,
-  format: BattleFormat,
-  topic: string
+  format: BattleFormat
 ): Promise<string | null> {
   if (!isSupabaseConfigured || !supabase) return null;
   const { data, error } = await supabase.rpc("match_with_ai", {
     p_player_id: playerId,
     p_format: format,
-    p_topic: topic,
   });
   if (error || !data) return null;
   return data as string;
@@ -191,6 +190,28 @@ export async function requestAiTurn(battleId: string): Promise<void> {
     if (!res.ok) throw new Error("ai-turn request failed");
   } catch {
     throw new Error("ai-turn request failed");
+  }
+}
+
+// Fire-and-forget right after the human proposes a topic against an AI
+// opponent — asks the server (via Gemini) to actually decide agree or
+// reject, rather than auto-accepting. The decision lands through the
+// normal topic_proposals realtime subscription, same as a human's
+// response would.
+export async function requestAiTopicResponse(battleId: string, proposalId: string): Promise<void> {
+  if (!supabase) return;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return;
+  try {
+    await fetch("/api/battles/ai-topic-response", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ battleId, proposalId }),
+    });
+  } catch {
+    // best-effort — if it fails, the human can still propose again, or the
+    // 60s timeout fallback covers it
   }
 }
 
@@ -381,11 +402,11 @@ export async function getTopicProposals(battleId: string): Promise<TopicProposal
 export async function proposeTopic(
   battleId: string,
   topic: string
-): Promise<{ ok: boolean; message?: string }> {
+): Promise<{ ok: boolean; message?: string; proposalId?: string }> {
   if (!isSupabaseConfigured || !supabase) return { ok: false, message: "Not connected." };
-  const { error } = await supabase.rpc("propose_topic", { battle_id: battleId, topic });
+  const { data, error } = await supabase.rpc("propose_topic", { battle_id: battleId, topic });
   if (error) return { ok: false, message: error.message };
-  return { ok: true };
+  return { ok: true, proposalId: data as string };
 }
 
 export async function respondToTopicProposal(

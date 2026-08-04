@@ -30,7 +30,7 @@ async function callGemini(apiKey: string, prompt: string): Promise<string> {
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 400 },
+        generationConfig: { maxOutputTokens: 70 },
       }),
     }
   );
@@ -152,6 +152,9 @@ ${battle.topic ?? "Open Debate"}
 
 [TRANSCRIPT SO FAR]
 ${transcript}
+
+[LENGTH OVERRIDE]
+This overrides any length guidance above: reply in at most 2 short lines, roughly 25 words total. Write like a quick text message during a live back-and-forth, not a written argument or a summary. Make one sharp point, not several.
 
 Respond now with your next turn only, as ${aiPlayer.name}. Do not include your name or any label before it — just the message itself.`;
 
