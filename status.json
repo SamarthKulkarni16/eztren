@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-08-05T05:01:10.558Z",
+  "issues": [
+    {
+      "id": "lint-failed",
+      "message": "npm run lint reported errors — check the GitHub Actions run logs for details."
+    }
+  ]
+}
