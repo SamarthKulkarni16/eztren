@@ -76,7 +76,12 @@ async function probeGemini(apiKey: string | undefined): Promise<ProbeResult> {
         headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: "Reply with exactly the single word: OK" }] }],
-          generationConfig: { maxOutputTokens: 5 },
+          // Gemini 3.x thinks by default before writing the visible
+          // answer — thinkingLevel "low" keeps that bounded instead of
+          // variable, and a real maxOutputTokens budget (not 5) leaves
+          // room for both the hidden thinking and the actual answer, same
+          // fix as the OpenRouter reasoning-model probe below.
+          generationConfig: { maxOutputTokens: 300, thinkingConfig: { thinkingLevel: "low" } },
         }),
       }
     );
