@@ -166,7 +166,7 @@ async function main() {
 
   let message;
   if (issues.length === 0) {
-    message = "Eztren Support: All Good";
+    message = "Eztren Support: All Good.";
   } else {
     const lines = issues.map((i) => {
       const tag = previousIds.has(i.id) ? "(ongoing)" : "(NEW)";
