@@ -108,20 +108,20 @@ export async function GET() {
       "cerebras",
       "https://api.cerebras.ai/v1/chat/completions",
       process.env.CEREBRAS_API_KEY,
-      process.env.CEREBRAS_MODEL || "llama-3.3-70b"
+      process.env.CEREBRAS_MODEL || "gpt-oss-120b"
     ),
     probeOpenAICompatible(
       "openrouter (player)",
       "https://openrouter.ai/api/v1/chat/completions",
       process.env.OPENROUTER_API_KEY,
-      process.env.OPENROUTER_PLAYER_MODEL || "meta-llama/llama-3.3-70b-instruct"
+      process.env.OPENROUTER_PLAYER_MODEL || "openai/gpt-oss-20b:free"
     ),
     probeGemini(process.env.GEMINI_API_KEY),
     probeOpenAICompatible(
       "openrouter (judge)",
       "https://openrouter.ai/api/v1/chat/completions",
       process.env.OPENROUTER_API_KEY,
-      process.env.OPENROUTER_JUDGE_MODEL || "google/gemini-2.5-flash"
+      process.env.OPENROUTER_JUDGE_MODEL || "openai/gpt-oss-20b:free"
     ),
   ]);
 

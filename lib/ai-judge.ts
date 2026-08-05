@@ -9,7 +9,16 @@
 // on Groq/Cerebras/OpenRouter and never touch Gemini.
 
 const GEMINI_MODEL = "gemini-3.5-flash";
-const OPENROUTER_JUDGE_MODEL = process.env.OPENROUTER_JUDGE_MODEL || "google/gemini-2.5-flash";
+// Free (:free) OpenRouter models by default, so the fallback works with
+// zero purchased credits. Text-only judging (match verdicts on a
+// transcript, topic-relevance checks) uses a strong free text model.
+// Audio judging needs a model that actually accepts inline audio input —
+// most free-tier models don't, so that path uses a separate multimodal
+// free model. Override either with a paid model once credits are added if
+// you want a stronger fallback.
+const OPENROUTER_JUDGE_TEXT_MODEL = process.env.OPENROUTER_JUDGE_MODEL || "openai/gpt-oss-20b:free";
+const OPENROUTER_JUDGE_AUDIO_MODEL =
+  process.env.OPENROUTER_JUDGE_AUDIO_MODEL || "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
 
 export interface JudgeAudio {
   base64: string;
@@ -57,10 +66,11 @@ async function callGeminiJSON<T>(apiKey: string, prompt: string, audio?: JudgeAu
 
 async function callOpenRouterJSON<T>(apiKey: string, prompt: string, audio?: JudgeAudio): Promise<T> {
   const content: any[] = [{ type: "text", text: prompt }];
+  let model = OPENROUTER_JUDGE_TEXT_MODEL;
   if (audio) {
-    // OpenAI-compatible audio-input shape. Only works if OPENROUTER_JUDGE_MODEL
-    // points at an audio-capable model — defaults to a Gemini model served
-    // through OpenRouter, which accepts inline audio the same way.
+    // OpenAI-compatible audio-input shape, and switch to the audio-capable
+    // free model — most free-tier text models can't take inline audio.
+    model = OPENROUTER_JUDGE_AUDIO_MODEL;
     const format = audio.mimeType.includes("wav")
       ? "wav"
       : audio.mimeType.includes("mp3")
@@ -78,7 +88,7 @@ async function callOpenRouterJSON<T>(apiKey: string, prompt: string, audio?: Jud
       "X-Title": "Eztren",
     },
     body: JSON.stringify({
-      model: OPENROUTER_JUDGE_MODEL,
+      model,
       messages: [{ role: "user", content }],
       response_format: { type: "json_object" },
     }),

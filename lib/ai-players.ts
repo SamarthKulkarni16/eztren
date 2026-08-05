@@ -85,13 +85,19 @@ function buildProviders(): PlayerProvider[] {
       name: "cerebras",
       url: "https://api.cerebras.ai/v1/chat/completions",
       apiKey: process.env.CEREBRAS_API_KEY,
-      model: process.env.CEREBRAS_MODEL || "llama-3.3-70b",
+      // llama-3.3-70b was removed from Cerebras's public catalog. Current
+      // production model — see https://inference-docs.cerebras.ai/models/overview
+      model: process.env.CEREBRAS_MODEL || "gpt-oss-120b",
     },
     {
       name: "openrouter",
       url: "https://openrouter.ai/api/v1/chat/completions",
       apiKey: process.env.OPENROUTER_API_KEY,
-      model: process.env.OPENROUTER_PLAYER_MODEL || "meta-llama/llama-3.3-70b-instruct",
+      // A genuinely free (:free) OpenRouter model by default, so this tier
+      // works with zero purchased credits — matching Groq/Cerebras above.
+      // Set OPENROUTER_PLAYER_MODEL to a paid model once credits are added
+      // if you want a stronger model here.
+      model: process.env.OPENROUTER_PLAYER_MODEL || "openai/gpt-oss-20b:free",
     },
   ];
 }
