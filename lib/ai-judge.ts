@@ -6,7 +6,7 @@
 // needs to accept audio for recorded voice battles) and fall back to
 // OpenRouter only if Gemini is unreachable or exhausted. AI player-bot
 // turns are a separate chain — see lib/ai-players.ts — because those stay
-// on Groq/Cerebras/OpenRouter and never touch Gemini.
+// on Groq/OpenRouter and never touch Gemini.
 
 const GEMINI_MODEL = "gemini-3.5-flash";
 // Free (:free) OpenRouter models by default, so the fallback works with

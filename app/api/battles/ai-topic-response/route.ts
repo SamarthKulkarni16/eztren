@@ -9,7 +9,7 @@ import { callPlayerBot } from "@/lib/ai-players";
 // does reject a topic that doesn't fit, same as a human might.
 //
 // This is an in-character player decision, not a neutral judging call, so
-// it goes through the same Groq -> Cerebras -> OpenRouter chain as
+// it goes through the same Groq -> OpenRouter chain as
 // ai-turn/route.ts (lib/ai-players.ts) rather than Gemini.
 //
 // Same two-client pattern as /api/battles/ai-turn: `asHuman` (anon key +

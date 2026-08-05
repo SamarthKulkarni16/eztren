@@ -105,18 +105,12 @@ async function probeGemini(apiKey: string | undefined): Promise<ProbeResult> {
 }
 
 export async function GET() {
-  const [groq, cerebras, openrouterPlayer, gemini, openrouterJudge] = await Promise.all([
+  const [groq, openrouterPlayer, gemini, openrouterJudge] = await Promise.all([
     probeOpenAICompatible(
       "groq",
       "https://api.groq.com/openai/v1/chat/completions",
       process.env.GROQ_API_KEY,
       process.env.GROQ_MODEL || "llama-3.3-70b-versatile"
-    ),
-    probeOpenAICompatible(
-      "cerebras",
-      "https://api.cerebras.ai/v1/chat/completions",
-      process.env.CEREBRAS_API_KEY,
-      process.env.CEREBRAS_MODEL || "gpt-oss-120b"
     ),
     probeOpenAICompatible(
       "openrouter (player)",
@@ -141,7 +135,7 @@ export async function GET() {
   ]);
 
   return NextResponse.json({
-    playerBots: { groq, cerebras, openrouter: openrouterPlayer },
+    playerBots: { groq, openrouter: openrouterPlayer },
     judge: { gemini, openrouter: openrouterJudge },
   });
 }

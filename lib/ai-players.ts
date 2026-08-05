@@ -1,16 +1,21 @@
 // Shared provider chain for AI player-bot text generation (in-character
 // battle turns, topic accept/reject decisions). Every call walks the same
-// order — Groq -> Cerebras -> OpenRouter — and falls to the next provider
-// the moment one fails for any reason: out of tokens/quota, rate limited,
-// down, or simply not configured. Judging (app/api/judge,
+// order — Groq -> OpenRouter — and falls to the next provider the moment
+// one fails for any reason: out of tokens/quota, rate limited, down, or
+// simply not configured. Judging (app/api/judge,
 // app/api/battles/confirm-topic) is a separate chain — see lib/ai-judge.ts
 // — because it stays Gemini-first.
+//
+// Cerebras was in this chain too, but got pulled — its account kept
+// returning 402 Payment Required on a model documented as free-tier
+// (no card required), which looked account-side rather than a config
+// issue on our end. Re-add it here if that gets sorted.
 //
 // Because every battle turn is its own independent request, "switch
 // mid-battle" needs no special handling: the moment Groq starts failing
 // (e.g. its free-tier tokens run out), the very next turn's call just
-// walks past it to Cerebras, then OpenRouter, with no coordination needed
-// between requests.
+// walks past it to OpenRouter, with no coordination needed between
+// requests.
 
 type ChatRole = "system" | "user" | "assistant";
 type ChatMessage = { role: ChatRole; content: string };
@@ -95,21 +100,13 @@ function buildProviders(): PlayerProvider[] {
       model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
     },
     {
-      name: "cerebras",
-      url: "https://api.cerebras.ai/v1/chat/completions",
-      apiKey: process.env.CEREBRAS_API_KEY,
-      // llama-3.3-70b was removed from Cerebras's public catalog. Current
-      // production model — see https://inference-docs.cerebras.ai/models/overview
-      model: process.env.CEREBRAS_MODEL || "gpt-oss-120b",
-    },
-    {
       name: "openrouter",
       url: "https://openrouter.ai/api/v1/chat/completions",
       apiKey: process.env.OPENROUTER_API_KEY,
       // A genuinely free (:free) OpenRouter model by default, so this tier
-      // works with zero purchased credits — matching Groq/Cerebras above.
-      // Set OPENROUTER_PLAYER_MODEL to a paid model once credits are added
-      // if you want a stronger model here.
+      // works with zero purchased credits — matching Groq above. Set
+      // OPENROUTER_PLAYER_MODEL to a paid model once credits are added if
+      // you want a stronger model here.
       model: process.env.OPENROUTER_PLAYER_MODEL || "openai/gpt-oss-20b:free",
       // gpt-oss-20b is a reasoning model — cap its hidden reasoning and
       // guarantee enough budget left for the actual answer, or short
@@ -125,7 +122,7 @@ export interface PlayerBotResult {
   provider: string;
 }
 
-// Runs `prompt` through Groq -> Cerebras -> OpenRouter, returning the first
+// Runs `prompt` through Groq -> OpenRouter, returning the first
 // successful reply. Throws only if every configured provider failed (or
 // none are configured), with a message listing what happened at each step
 // so failures are debuggable instead of a generic 502.

@@ -22,7 +22,7 @@ import { callPlayerBot } from "@/lib/ai-players";
 // AI's player_id, which RLS alone would never allow a human's client to do.
 //
 // Text generation for the AI player itself goes through the Groq ->
-// Cerebras -> OpenRouter fallback chain (lib/ai-players.ts), not Gemini —
+// OpenRouter fallback chain (lib/ai-players.ts), not Gemini —
 // Gemini is reserved for judging. See lib/ai-players.ts for how the
 // mid-battle fallback works.
 
