@@ -166,13 +166,13 @@ async function main() {
 
   let message;
   if (issues.length === 0) {
-    message = `Eztren daily check (${dateStr()}): All clear. Site up, build/lint pass, no broken links found.`;
+    message = "All Good";
   } else {
     const lines = issues.map((i) => {
       const tag = previousIds.has(i.id) ? "(ongoing)" : "(NEW)";
       return `${tag} ${i.message}`;
     });
-    message = `Eztren daily check (${dateStr()}): ${issues.length} issue(s) found:\n${lines.join("\n")}`;
+    message = `Eztren (${dateStr()}): ${issues.length} issue(s):\n${lines.join("\n")}`;
   }
 
   // SMS provider limits length - keep it reasonable
