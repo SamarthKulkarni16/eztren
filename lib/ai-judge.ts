@@ -91,6 +91,12 @@ async function callOpenRouterJSON<T>(apiKey: string, prompt: string, audio?: Jud
       model,
       messages: [{ role: "user", content }],
       response_format: { type: "json_object" },
+      // Both defaults are reasoning models — cap hidden reasoning and
+      // guarantee headroom for the actual JSON answer (a verdict/reason
+      // is short, but reasoning alone can otherwise eat the whole budget
+      // and come back with empty content).
+      reasoning: { effort: "low" },
+      max_tokens: 1024,
     }),
   });
   const data = await res.json().catch(() => ({}));

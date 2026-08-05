@@ -20,6 +20,17 @@ interface PlayerProvider {
   url: string;
   apiKey?: string;
   model: string;
+  // Extra fields merged into the request body — used to tame reasoning
+  // models (see openrouter below).
+  extraBody?: Record<string, unknown>;
+  // Floor applied to the caller's requested maxTokens for this provider.
+  // Reasoning models spend part of the token budget on hidden
+  // chain-of-thought before ever writing the visible answer — with a tiny
+  // budget (e.g. 5-80 tokens for a short battle turn) that hidden
+  // reasoning alone can eat the whole thing, leaving nothing in the
+  // response content. Free-tier OpenRouter models are reasoning models
+  // more often than not, so OpenRouter gets a generous floor.
+  minTokens?: number;
 }
 
 // A provider that just failed with a rate-limit/quota-exhausted style
@@ -43,6 +54,7 @@ async function callProvider(
   messages: ChatMessage[],
   maxTokens: number
 ): Promise<string> {
+  const effectiveMaxTokens = Math.max(maxTokens, provider.minTokens ?? 0);
   const res = await fetch(provider.url, {
     method: "POST",
     headers: {
@@ -52,7 +64,8 @@ async function callProvider(
     body: JSON.stringify({
       model: provider.model,
       messages,
-      max_tokens: maxTokens,
+      max_tokens: effectiveMaxTokens,
+      ...provider.extraBody,
     }),
   });
 
@@ -98,6 +111,11 @@ function buildProviders(): PlayerProvider[] {
       // Set OPENROUTER_PLAYER_MODEL to a paid model once credits are added
       // if you want a stronger model here.
       model: process.env.OPENROUTER_PLAYER_MODEL || "openai/gpt-oss-20b:free",
+      // gpt-oss-20b is a reasoning model — cap its hidden reasoning and
+      // guarantee enough budget left for the actual answer, or short
+      // calls (topic accept/reject, ~5 tokens) come back empty.
+      extraBody: { reasoning: { effort: "low" } },
+      minTokens: 300,
     },
   ];
 }

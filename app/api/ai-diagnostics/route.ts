@@ -22,7 +22,9 @@ async function probeOpenAICompatible(
   name: string,
   url: string,
   apiKey: string | undefined,
-  model: string
+  model: string,
+  maxTokens: number = 5,
+  extraBody: Record<string, unknown> = {}
 ): Promise<ProbeResult> {
   if (!apiKey) return { configured: false, ok: false, error: "no API key set" };
   const started = Date.now();
@@ -33,7 +35,8 @@ async function probeOpenAICompatible(
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content: "Reply with exactly the single word: OK" }],
-        max_tokens: 5,
+        max_tokens: maxTokens,
+        ...extraBody,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -114,14 +117,21 @@ export async function GET() {
       "openrouter (player)",
       "https://openrouter.ai/api/v1/chat/completions",
       process.env.OPENROUTER_API_KEY,
-      process.env.OPENROUTER_PLAYER_MODEL || "openai/gpt-oss-20b:free"
+      process.env.OPENROUTER_PLAYER_MODEL || "openai/gpt-oss-20b:free",
+      // Reasoning model — needs real headroom past hidden reasoning, or
+      // this probe would falsely report failure the same way the earlier
+      // 5-token version did.
+      300,
+      { reasoning: { effort: "low" } }
     ),
     probeGemini(process.env.GEMINI_API_KEY),
     probeOpenAICompatible(
       "openrouter (judge)",
       "https://openrouter.ai/api/v1/chat/completions",
       process.env.OPENROUTER_API_KEY,
-      process.env.OPENROUTER_JUDGE_MODEL || "openai/gpt-oss-20b:free"
+      process.env.OPENROUTER_JUDGE_MODEL || "openai/gpt-oss-20b:free",
+      300,
+      { reasoning: { effort: "low" } }
     ),
   ]);
 
