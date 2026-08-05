@@ -2,13 +2,12 @@ name: Daily Health Check
 
 on:
   schedule:
-    # 8:45 AM IST = 3:15 AM UTC — runs 15 min before Make.com's 9:00 AM IST
-    # scenario, so status.json is fresh by the time Make.com reads it.
-    - cron: "15 3 * * *"
-  workflow_dispatch: {} # lets you trigger it manually from the Actions tab
+    # 9:00 AM IST = 3:30 AM UTC
+    - cron: "30 3 * * *"
+  workflow_dispatch: {} # lets you trigger it manually from the Actions tab to test
 
 permissions:
-  contents: write # needed to commit status.json back to the repo
+  contents: write # needed so the workflow can commit the updated state file
 
 jobs:
   health-check:
@@ -17,34 +16,60 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Run build
         id: build
-        run: npm run build
         continue-on-error: true
+        run: npm run build 2>&1 | tee build.log
 
       - name: Run lint
         id: lint
-        run: npm run lint
         continue-on-error: true
+        run: npm run lint 2>&1 | tee lint.log
 
-      - name: Run health check script
+      - name: Determine build/lint status
+        id: status
+        run: |
+          if [ "${{ steps.build.outcome }}" == "failure" ]; then
+            echo "build_status=failure" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_status=success" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ steps.lint.outcome }}" == "failure" ]; then
+            echo "lint_status=failure" >> "$GITHUB_OUTPUT"
+          else
+            echo "lint_status=success" >> "$GITHUB_OUTPUT"
+          fi
+          echo "build_tail<<EOF" >> "$GITHUB_OUTPUT"
+          tail -c 500 build.log >> "$GITHUB_OUTPUT" || true
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "lint_tail<<EOF" >> "$GITHUB_OUTPUT"
+          tail -c 500 lint.log >> "$GITHUB_OUTPUT" || true
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run health check + send SMS
         env:
-          BUILD_STATUS: ${{ steps.build.outcome }}
-          LINT_STATUS: ${{ steps.lint.outcome }}
+          BUILD_STATUS: ${{ steps.status.outputs.build_status }}
+          LINT_STATUS: ${{ steps.status.outputs.lint_status }}
+          BUILD_LOG_TAIL: ${{ steps.status.outputs.build_tail }}
+          LINT_LOG_TAIL: ${{ steps.status.outputs.lint_tail }}
+          SMS_GATEWAY_USERNAME: ${{ secrets.SMS_GATEWAY_USERNAME }}
+          SMS_GATEWAY_PASSWORD: ${{ secrets.SMS_GATEWAY_PASSWORD }}
+          SMS_TO_NUMBER: ${{ secrets.SMS_TO_NUMBER }}
         run: node scripts/health-check.mjs
 
-      - name: Commit status.json
+      - name: Commit updated state file
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add status.json
-          git diff --staged --quiet || git commit -m "chore: update health check status [skip ci]"
+          git config user.name "eztren-health-bot"
+          git config user.email "actions@github.com"
+          git add .github/health-state.json
+          git diff --quiet --cached || git commit -m "chore: update health check state [skip ci]"
           git push
