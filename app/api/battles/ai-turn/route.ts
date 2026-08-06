@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !anonKey || !serviceKey) {
+  if (!url || !anonKey) {
     return NextResponse.json({ error: "Server not configured" }, { status: 500 });
   }
 
@@ -108,21 +108,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "nothing_to_reply_to" });
   }
 
-  const asService = createClient(url, serviceKey, { db: { schema: "eztren" } });
-  const { data: personality } = await asService
-    .from("ai_personalities")
-    .select("system_prompt")
-    .eq("id", aiPlayer.ai_personality_id)
-    .maybeSingle();
-  if (!personality) {
-    return NextResponse.json({ error: "Personality not found" }, { status: 500 });
+  let systemPrompt = `You are ${aiPlayer.name}, an AI debate personality on Eztren. Stay in character, answer directly, and make concise arguments.`;
+  if (serviceKey && aiPlayer.ai_personality_id) {
+    const asService = createClient(url, serviceKey, { db: { schema: "eztren" } });
+    const { data: personality } = await asService
+      .from("ai_personalities")
+      .select("system_prompt")
+      .eq("id", aiPlayer.ai_personality_id)
+      .maybeSingle();
+    if (personality?.system_prompt) systemPrompt = personality.system_prompt;
   }
 
   const transcript = (turns ?? [])
     .map((t) => `${t.player_id === humanPlayer.id ? humanPlayer.name : aiPlayer.name}: ${t.content}`)
     .join("\n");
 
-  const prompt = `${personality.system_prompt}
+  const prompt = `${systemPrompt}
 
 [DEBATE TOPIC]
 ${battle.topic ?? "Open Debate"}
@@ -139,11 +140,11 @@ Respond now with your next turn only, as ${aiPlayer.name}. Do not include your n
   try {
     const { text } = await callPlayerBot(prompt, 70);
     replyText = text;
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "AI player-bot request failed" },
-      { status: 502 }
-    );
+  } catch {
+    // Never leave a human waiting forever because every text-generation
+    // provider is down or unconfigured. Insert a short, in-character
+    // fallback turn so the live battle can keep moving.
+    replyText = "I see the angle. But that only works if the link between your claim and the topic is stronger than you have shown.";
   }
 
   // Strip a leading "Name:" label if the model added one anyway, and any

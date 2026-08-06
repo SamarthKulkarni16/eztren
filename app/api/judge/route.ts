@@ -111,9 +111,7 @@ export async function POST(req: NextRequest) {
   if (match.judge_status === "judged") {
     return NextResponse.json({ status: "judged", winnerId: match.winner_id, summary: match.ai_summary });
   }
-  if (match.judge_status === "judging") {
-    return NextResponse.json({ status: "judging" });
-  }
+  const alreadyJudging = match.judge_status === "judging";
 
   const isAudio = (match.tags ?? []).includes("audio");
 
@@ -172,11 +170,13 @@ export async function POST(req: NextRequest) {
 
   // Claim the match so a second client polling at the same moment doesn't
   // also fire off a Gemini call for the same match.
-  const { data: claimed } = await supabase.rpc("claim_match_for_judging", {
-    match_id: matchId,
-  });
-  if (!claimed) {
-    return NextResponse.json({ status: "judging" });
+  if (!alreadyJudging) {
+    const { data: claimed } = await supabase.rpc("claim_match_for_judging", {
+      match_id: matchId,
+    });
+    if (!claimed) {
+      return NextResponse.json({ status: "judging" });
+    }
   }
 
   const { data: playerA } = await supabase
