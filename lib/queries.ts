@@ -355,7 +355,8 @@ export async function getPlayerLookup(): Promise<Map<string, Player>> {
 }
 
 export async function sendMagicLink(
-  email: string
+  email: string,
+  referralCode?: string | null
 ): Promise<{ ok: boolean; message: string }> {
   if (!isSupabaseConfigured || !supabase) {
     return {
@@ -364,12 +365,19 @@ export async function sendMagicLink(
         "Sign-ups aren't connected to a live database yet — this will start sending real links once Supabase is wired up.",
     };
   }
+  // Carry ?ref= through the magic-link round trip — otherwise it's lost
+  // the moment the person leaves /join for their inbox. sessionStorage in
+  // JoinPage is the other half of this belt-and-suspenders approach, for
+  // the case where an email client rewrites the redirect URL.
+  const redirectBase =
+    typeof window !== "undefined" ? window.location.origin + "/join" : undefined;
+  const emailRedirectTo =
+    redirectBase && referralCode
+      ? `${redirectBase}?ref=${encodeURIComponent(referralCode)}`
+      : redirectBase;
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: {
-      emailRedirectTo:
-        typeof window !== "undefined" ? window.location.origin + "/join" : undefined,
-    },
+    options: { emailRedirectTo },
   });
   if (error) return { ok: false, message: error.message };
   return { ok: true, message: "Check your email for a sign-in link." };
@@ -408,6 +416,7 @@ export async function registerPlayer(input: {
   role: "player" | "judge";
   age?: number | null;
   gender?: string;
+  referralCode?: string | null;
 }): Promise<{ ok: boolean; message: string; rank?: string }> {
   if (!isSupabaseConfigured || !supabase) {
     return { ok: false, message: "Not connected to a live database yet." };
@@ -418,6 +427,7 @@ export async function registerPlayer(input: {
     p_role: input.role,
     p_age: input.age ?? null,
     p_gender: input.gender ?? null,
+    p_referral_code: input.referralCode ?? null,
   });
   if (error || !data) {
     return {
@@ -426,4 +436,22 @@ export async function registerPlayer(input: {
     };
   }
   return { ok: true, message: `Registered. You're ranked ${data.rank}.`, rank: data.rank };
+}
+
+// Direct challenge (search-and-challenge in the Battle lobby) is locked
+// behind referring an active friend — see 035_referral_system.sql.
+export async function getMyReferralCode(): Promise<string | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data, error } = await supabase.rpc("get_my_referral_code");
+  if (error || !data) return null;
+  return data as string;
+}
+
+export async function isDirectChallengeUnlocked(playerId: string): Promise<boolean> {
+  if (!isSupabaseConfigured || !supabase) return false;
+  const { data, error } = await supabase.rpc("is_direct_challenge_unlocked", {
+    p_player_id: playerId,
+  });
+  if (error || data == null) return false;
+  return data as boolean;
 }

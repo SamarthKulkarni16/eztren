@@ -4,7 +4,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { getMyPlayer, getPlayers } from "@/lib/queries";
+import {
+  getMyPlayer,
+  getPlayers,
+  getMyReferralCode,
+  isDirectChallengeUnlocked,
+} from "@/lib/queries";
 import {
   joinQueue,
   leaveQueue,
@@ -58,6 +63,16 @@ export default function BattleLobby({
   const [queueError, setQueueError] = useState<string | null>(null);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
 
+  // Direct challenge (search-and-challenge below) is locked behind
+  // referring an active friend — see 035_referral_system.sql. null while
+  // we haven't checked yet, so we don't flash the locked state.
+  const [directChallengeUnlocked, setDirectChallengeUnlocked] = useState<
+    boolean | null
+  >(null);
+  const [referralLink, setReferralLink] = useState<string | null>(null);
+  const [loadingReferral, setLoadingReferral] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
       setLoading(false);
@@ -77,6 +92,33 @@ export default function BattleLobby({
   useEffect(() => {
     getPlayers().then(setPlayers);
   }, []);
+
+  useEffect(() => {
+    if (!profile) return;
+    isDirectChallengeUnlocked(profile.id).then(setDirectChallengeUnlocked);
+  }, [profile]);
+
+  async function handleGetReferralLink() {
+    if (loadingReferral || referralLink) return;
+    setLoadingReferral(true);
+    const code = await getMyReferralCode();
+    if (code) {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      setReferralLink(`${origin}/join?ref=${code}`);
+    }
+    setLoadingReferral(false);
+  }
+
+  async function handleCopyReferralLink() {
+    if (!referralLink) return;
+    try {
+      await navigator.clipboard.writeText(referralLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // clipboard API unavailable — the link is still visible to select manually
+    }
+  }
 
   const refreshChallenges = useCallback(async () => {
     if (!profile) return;
@@ -383,41 +425,94 @@ export default function BattleLobby({
         <p className="font-data text-[12px] uppercase tracking-wider text-steel mb-4">
           Challenge a Player
         </p>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or rank"
-          className="w-full bg-transparent border-b border-steel-line py-3 mb-2 focus:border-signal outline-none"
-        />
-        {challengeMessage && (
-          <p className="font-data text-[12px] text-signal mb-2">{challengeMessage}</p>
-        )}
-        {search && (
-          <div className="space-y-px bg-steel-line border border-steel-line max-h-64 overflow-y-auto">
-            {filteredPlayers.slice(0, 8).map((p) => {
-              const alreadyPending = outgoing.some(
-                (c) => c.opponentId === p.id && c.format === format && c.status === "pending"
-              );
-              const sending = sendingTo === p.id;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => handleChallenge(p.id)}
-                  disabled={alreadyPending || sending}
-                  className="w-full bg-void p-4 flex items-center justify-between hover:bg-steel-line/20 transition-colors text-left disabled:hover:bg-void disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <span className="font-body text-[15px]">{p.name}</span>
-                  <span className="font-data text-[12px] text-steel">
-                    {alreadyPending ? "Pending" : sending ? "Sending\u2026" : p.rank}
-                  </span>
-                </button>
-              );
-            })}
-            {filteredPlayers.length === 0 && (
-              <p className="bg-void p-4 text-steel text-[14px]">No players found.</p>
+        {directChallengeUnlocked === false ? (
+          <div className="border border-steel-line p-8">
+            <p className="font-display text-xl mb-2">Direct Challenge is locked.</p>
+            <p className="text-steel text-[15px] mb-6">
+              Refer a friend to unlock searching for a specific player and
+              challenging them directly. Once they sign up through your
+              link, the option unlocks for both of you &mdash; as long as
+              they stay an active player (battled in the last 10 days), per
+              the{" "}
+              <Link href="/constitution" className="text-signal hover:underline">
+                constitution
+              </Link>
+              . Go quiet past that window and it locks again for both of
+              you, until they&rsquo;re active again.
+            </p>
+            {referralLink ? (
+              <div>
+                <div className="flex items-center gap-px bg-steel-line border border-steel-line mb-2">
+                  <input
+                    readOnly
+                    value={referralLink}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="flex-1 bg-void p-3 font-data text-[12px] text-bone outline-none"
+                  />
+                  <button
+                    onClick={handleCopyReferralLink}
+                    className="bg-void px-4 py-3 font-data text-[12px] uppercase tracking-wider text-signal hover:bg-steel-line/20 transition-colors whitespace-nowrap"
+                  >
+                    {linkCopied ? "Copied" : "Copy"}
+                  </button>
+                </div>
+                <p className="font-data text-[11px] text-steel">
+                  Send this to a friend. Direct Challenge unlocks for both
+                  of you once they register through it and battle.
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={handleGetReferralLink}
+                disabled={loadingReferral}
+                className="font-data text-[13px] uppercase tracking-wider bg-bone text-void px-6 py-3 hover:bg-signal transition-colors disabled:opacity-50"
+              >
+                {loadingReferral ? "Generating\u2026" : "Get referral link"}
+              </button>
             )}
           </div>
+        ) : directChallengeUnlocked === true ? (
+          <>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or rank"
+              className="w-full bg-transparent border-b border-steel-line py-3 mb-2 focus:border-signal outline-none"
+            />
+            {challengeMessage && (
+              <p className="font-data text-[12px] text-signal mb-2">{challengeMessage}</p>
+            )}
+            {search && (
+              <div className="space-y-px bg-steel-line border border-steel-line max-h-64 overflow-y-auto">
+                {filteredPlayers.slice(0, 8).map((p) => {
+                  const alreadyPending = outgoing.some(
+                    (c) =>
+                      c.opponentId === p.id && c.format === format && c.status === "pending"
+                  );
+                  const sending = sendingTo === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => handleChallenge(p.id)}
+                      disabled={alreadyPending || sending}
+                      className="w-full bg-void p-4 flex items-center justify-between hover:bg-steel-line/20 transition-colors text-left disabled:hover:bg-void disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <span className="font-body text-[15px]">{p.name}</span>
+                      <span className="font-data text-[12px] text-steel">
+                        {alreadyPending ? "Pending" : sending ? "Sending\u2026" : p.rank}
+                      </span>
+                    </button>
+                  );
+                })}
+                {filteredPlayers.length === 0 && (
+                  <p className="bg-void p-4 text-steel text-[14px]">No players found.</p>
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="h-14 border border-steel-line animate-pulse" />
         )}
       </div>
 

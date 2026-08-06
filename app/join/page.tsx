@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import {
@@ -15,7 +16,22 @@ import {
 import { Player, Match, RankHistoryEntry } from "@/lib/types";
 import TimeAtRank from "@/components/TimeAtRank";
 
+// Referral code is kept in sessionStorage as a fallback for the magic-link
+// round trip — sendMagicLink also bakes it into the redirect URL, but some
+// email clients rewrite links, so this covers that case too.
+const REFERRAL_STORAGE_KEY = "eztren_referral_code";
+
 export default function JoinPage() {
+  return (
+    <Suspense fallback={null}>
+      <JoinPageInner />
+    </Suspense>
+  );
+}
+
+function JoinPageInner() {
+  const searchParams = useSearchParams();
+  const [referralCode, setReferralCode] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [checkingSession, setCheckingSession] = useState(true);
   const [profile, setProfile] = useState<Player | null>(null);
@@ -36,6 +52,26 @@ export default function JoinPage() {
   const [role, setRole] = useState<"player" | "judge">("player");
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState("");
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("ref");
+    if (fromUrl) {
+      setReferralCode(fromUrl);
+      try {
+        sessionStorage.setItem(REFERRAL_STORAGE_KEY, fromUrl);
+      } catch {
+        // sessionStorage unavailable (private browsing, etc.) — the URL
+        // param alone still covers the common case.
+      }
+    } else {
+      try {
+        const stored = sessionStorage.getItem(REFERRAL_STORAGE_KEY);
+        if (stored) setReferralCode(stored);
+      } catch {
+        // ignore
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
@@ -78,7 +114,7 @@ export default function JoinPage() {
   async function handleSendLink(e: React.FormEvent) {
     e.preventDefault();
     setSendingLink(true);
-    const res = await sendMagicLink(email);
+    const res = await sendMagicLink(email, referralCode);
     setLinkMessage(res.message);
     setLinkSent(res.ok);
     setSendingLink(false);
@@ -95,8 +131,14 @@ export default function JoinPage() {
       role,
       age: form.get("age") ? Number(form.get("age")) : null,
       gender: String(form.get("gender") ?? ""),
+      referralCode,
     });
     if (res.ok) {
+      try {
+        sessionStorage.removeItem(REFERRAL_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
       const p = await getMyPlayer();
       setProfile(p);
     } else {
@@ -261,6 +303,12 @@ export default function JoinPage() {
             Everyone starts unranked, at the bottom of the alphabet leagues.
             No entry fee. One verified email, one rank.
           </p>
+          {referralCode && (
+            <p className="font-data text-[12px] uppercase tracking-wider text-signal">
+              Joining via a friend&rsquo;s invite &mdash; you&rsquo;ll both
+              unlock Direct Challenge once you&rsquo;re active.
+            </p>
+          )}
           <p className="font-data text-[12px] uppercase tracking-wider text-steel">
             Signed in as{" "}
             <span className="text-bone">{session.user.email}</span>{" "}
@@ -375,6 +423,12 @@ export default function JoinPage() {
             Everyone starts unranked, at the bottom of the alphabet leagues.
             No entry fee. One verified email, one rank.
           </p>
+          {referralCode && !linkSent && (
+            <p className="font-data text-[12px] uppercase tracking-wider text-signal -mt-8 mb-12">
+              Joining via a friend&rsquo;s invite &mdash; you&rsquo;ll both
+              unlock Direct Challenge once you&rsquo;re active.
+            </p>
+          )}
           {linkSent ? (
             <div className="border border-steel-line p-8">
               <p className="font-display text-2xl mb-2">Check your inbox.</p>
