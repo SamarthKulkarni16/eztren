@@ -57,9 +57,24 @@ export default function BattleRoomPage() {
 
   useEffect(() => {
     if (battle?.status !== "completed" && battle?.status !== "abandoned") return;
-    getMatchByBattleId(battle.id).then((match) => {
-      if (match) router.replace(`/matches/${match.id}`);
-    });
+
+    let cancelled = false;
+    let attempts = 0;
+    const goToMatch = async () => {
+      const match = await getMatchByBattleId(battle.id);
+      if (cancelled) return;
+      if (match) {
+        router.replace(`/matches/${match.id}`);
+        return;
+      }
+      attempts += 1;
+      if (attempts < 20) setTimeout(goToMatch, 500);
+    };
+
+    goToMatch();
+    return () => {
+      cancelled = true;
+    };
   }, [battle?.status, battle?.id, router]);
 
   if (loading) return null;

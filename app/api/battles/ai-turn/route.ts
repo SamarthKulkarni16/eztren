@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "nothing_to_reply_to" });
   }
 
-  let systemPrompt = `You are ${aiPlayer.name}, an AI debate personality on Eztren. Stay in character, answer directly, and make concise arguments.`;
+  let systemPrompt = `You are ${aiPlayer.name}, an AI debate personality on Eztren. Stay in character, answer directly, and use plain English that people from any country can understand.`;
   if (serviceKey && aiPlayer.ai_personality_id) {
     const asService = createClient(url, serviceKey, { db: { schema: "eztren" } });
     const { data: personality } = await asService
@@ -132,7 +132,7 @@ ${battle.topic ?? "Open Debate"}
 ${transcript}
 
 [LENGTH OVERRIDE]
-This overrides any length guidance above: reply in at most 2 short lines, roughly 25 words total. Write like a quick text message during a live back-and-forth, not a written argument or a summary. Make one sharp point, not several.
+This overrides any length guidance above: reply in at most 2 short lines, roughly 25 words total. Use plain English only. Use short, common words. Avoid jargon, idioms, academic words, and compressed phrases that are hard for non-native English speakers. Write like a quick text message during a live back-and-forth, not a written argument or a summary. Make one clear point, not several.
 
 Respond now with your next turn only, as ${aiPlayer.name}. Do not include your name or any label before it — just the message itself.`;
 
@@ -144,7 +144,7 @@ Respond now with your next turn only, as ${aiPlayer.name}. Do not include your n
     // Never leave a human waiting forever because every text-generation
     // provider is down or unconfigured. Insert a short, in-character
     // fallback turn so the live battle can keep moving.
-    replyText = "I see the angle. But that only works if the link between your claim and the topic is stronger than you have shown.";
+    replyText = "I get your point, but you still need to show why it is true for this topic.";
   }
 
   // Strip a leading "Name:" label if the model added one anyway, and any

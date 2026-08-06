@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { callPlayerBot } from "@/lib/ai-players";
 
+function hashString(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function forcedRejectCount(seed: number): number {
+  const mode = seed % 5;
+  if (mode === 0) return Number.POSITIVE_INFINITY;
+  if (mode === 1) return 2;
+  if (mode === 2) return 1;
+  return 0;
+}
+
 // Called right after a human proposes a topic against an AI opponent (see
 // TopicNegotiation.tsx) — asks the AI player, using the personality's own
 // system prompt, to actually decide whether to agree or reject. Not an
@@ -96,26 +112,40 @@ export async function POST(req: NextRequest) {
     if (personality?.system_prompt) systemPrompt = personality.system_prompt;
   }
 
+  const { data: humanProposals } = await asHuman
+    .from("topic_proposals")
+    .select("id")
+    .eq("battle_id", battleId)
+    .eq("proposed_by", humanPlayer.id);
+  const humanProposalCount = humanProposals?.length ?? 1;
+  const rejectCount = forcedRejectCount(hashString(`${battleId}:${aiPlayer.id}`));
+
   const prompt = `${systemPrompt}
 
 [TOPIC PROPOSAL]
 A human opponent has just proposed the following debate topic for this battle: "${proposal.topic}"
 
-Decide, in character as ${aiPlayer.name}, whether you're willing to debate this topic. Most reasonable topics are fine to accept — only reject if it's genuinely a bad fit for how you argue, too vague to take a side on, or something you'd realistically pass on. Reply with exactly one word and nothing else: AGREE or REJECT.`;
+[NEGOTIATION STYLE]
+Do not agree to every topic. During this one-minute topic selection, act like a real opponent with preferences. Some AI personalities should agree quickly, some should reject one or two topics before agreeing, and some should keep rejecting topics until the timer assigns one.
+
+For this specific battle, your private stance is: ${rejectCount === Number.POSITIVE_INFINITY ? "be very hard to satisfy and reject the proposed topic" : rejectCount > 0 && humanProposalCount <= rejectCount ? "reject this proposal and wait for a better one" : "decide normally, accepting only if this topic genuinely interests you"}.
+
+Reply with exactly one word and nothing else: AGREE or REJECT.`;
 
   let decisionText: string;
   try {
     const { text } = await callPlayerBot(prompt, 5);
     decisionText = text;
   } catch {
-    // If every player-bot provider is unreachable/exhausted, default to
-    // accepting rather than stalling the human's negotiation window — the
-    // 60s timeout fallback exists, but there's no reason to force it when
-    // we can just say yes.
-    decisionText = "AGREE";
+    // If every player-bot provider is unreachable/exhausted, use the same
+    // per-battle negotiation stance so AI opponents still sometimes reject
+    // instead of always agreeing. The 60s timeout can assign a topic if the
+    // AI keeps saying no.
+    decisionText = humanProposalCount <= rejectCount ? "REJECT" : "AGREE";
   }
 
-  const accept = !decisionText.toUpperCase().includes("REJECT");
+  const modelAccept = !decisionText.toUpperCase().includes("REJECT");
+  const accept = humanProposalCount <= rejectCount ? false : modelAccept;
 
   const { error: rpcError } = await asHuman.rpc("insert_ai_topic_response", {
     p_battle_id: battleId,
