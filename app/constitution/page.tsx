@@ -56,6 +56,11 @@ const sections = [
     title: "The Hundred",
     body: `Eztren keeps one hundred debate personalities in permanent rotation, each with its own way of arguing \u2014 built to be recognized, not mistaken for a human. If no opponent is free within a minute of queueing, one of the Hundred steps in instead, chosen at random, never the same one twice in your last ten AI battles. They hold no rank and never chase one \u2014 the sport belongs to its players. But the room stays live, day or night, everywhere in the world, and there's always another one you haven't debated yet.`,
   },
+  {
+    n: "12",
+    title: "Active Players",
+    body: `A player counts as active if they have battled at least once in the last ten days. Flagship leagues unlock on active players, not raw signups \u2014 a pile of registered-but-idle accounts should never be mistaken for a live sport.`,
+  },
 ];
 
 export default function ConstitutionPage() {
