@@ -47,14 +47,14 @@ export async function getPlayerCount(): Promise<number> {
   return count;
 }
 
-// Active-player count (battled at least once in the last 3 days) — this,
+// Active-player count (battled at least once in the last 10 days) — this,
 // not raw signups, is what actually gates the flagship-league unlock.
 // See supabase/030_active_player_count.sql for the definition of "active."
 // This is an internal rule only: it's never shown as a badge, label, or
 // profile field anywhere on the site.
 export async function getActivePlayerCount(): Promise<number> {
   if (!isSupabaseConfigured || !supabase) return mockPlayers.length;
-  const { data, error } = await supabase.rpc("get_active_player_count", { days: 3 });
+  const { data, error } = await supabase.rpc("get_active_player_count", { days: 10 });
   if (error || data == null) return 0;
   return data as number;
 }

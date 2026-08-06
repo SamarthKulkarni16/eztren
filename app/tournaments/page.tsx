@@ -41,7 +41,7 @@ export default async function TournamentsPage() {
                 <h3 className="font-display text-2xl mb-3">{t.name}</h3>
                 <div className="mt-6 pt-4 border-t border-steel-line">
                   <p className="font-data text-[12px] text-steel">
-                    Waiting for {FLAGSHIP_LEAGUES_THRESHOLD} members &mdash;{" "}
+                    Waiting for {FLAGSHIP_LEAGUES_THRESHOLD} active players &mdash;{" "}
                     <span className="text-signal">
                       {playerCount}/{FLAGSHIP_LEAGUES_THRESHOLD}
                     </span>{" "}
