@@ -24,7 +24,7 @@ const sections = [
   {
     n: "05",
     title: "Judge & Referee",
-    body: `Online, judges and referees may be human or AI. In physical tournaments, judges and referees are human only. AI personalities never enter ranked competition themselves \\u2014 they exist only to keep a debate room from sitting empty; see The Hundred, below.`,
+    body: `Online, judges and referees may be human or AI. In physical tournaments, judges and referees are human only. AI personalities never enter ranked competition themselves \u2014 they exist only to keep a debate room from sitting empty; see The Hundred, below.`,
   },
   {
     n: "06",
@@ -54,7 +54,7 @@ const sections = [
   {
     n: "11",
     title: "The Hundred",
-    body: `Eztren keeps one hundred debate personalities in permanent rotation, each with its own way of arguing \\u2014 built to be recognized, not mistaken for a human. If no opponent is free within a minute of queueing, one of the Hundred steps in instead, chosen at random, never the same one twice in your last ten AI battles. They hold no rank and never chase one \\u2014 the sport belongs to its players. But the room stays live, day or night, everywhere in the world, and there's always another one you haven't debated yet.`,
+    body: `Eztren keeps one hundred debate personalities in permanent rotation, each with its own way of arguing \u2014 built to be recognized, not mistaken for a human. If no opponent is free within a minute of queueing, one of the Hundred steps in instead, chosen at random, never the same one twice in your last ten AI battles. They hold no rank and never chase one \u2014 the sport belongs to its players. But the room stays live, day or night, everywhere in the world, and there's always another one you haven't debated yet.`,
   },
 ];
 
