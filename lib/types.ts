@@ -54,6 +54,8 @@ export interface Match {
   judgeReasoning?: string;
   isPrivate?: boolean;
   recordingUrl?: string | null;
+  recordingUrlA?: string | null;
+  recordingUrlB?: string | null;
 }
 
 export interface Tournament {

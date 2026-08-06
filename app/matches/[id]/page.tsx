@@ -221,6 +221,21 @@ export default function MatchPage() {
           </p>
           {match.recordingUrl ? (
             <audio controls src={match.recordingUrl} className="w-full mb-2" />
+          ) : match.recordingUrlA || match.recordingUrlB ? (
+            <div className="space-y-2">
+              {match.recordingUrlA && (
+                <div>
+                  <p className="text-steel text-[12px] mb-1">Player A's mic</p>
+                  <audio controls src={match.recordingUrlA} className="w-full" />
+                </div>
+              )}
+              {match.recordingUrlB && (
+                <div>
+                  <p className="text-steel text-[12px] mb-1">Player B's mic</p>
+                  <audio controls src={match.recordingUrlB} className="w-full" />
+                </div>
+              )}
+            </div>
           ) : (
             <p className="text-steel text-[14px] italic">
               No recording available for this match.
