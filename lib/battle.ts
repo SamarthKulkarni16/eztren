@@ -215,6 +215,29 @@ export async function requestAiTopicResponse(battleId: string, proposalId: strin
   }
 }
 
+// Fire-and-forget from the human's client a few seconds after the topic
+// negotiation screen mounts against an AI opponent — asks the server to
+// have the AI personality suggest its own topic (see
+// app/api/battles/ai-propose-topic), rather than only ever waiting on the
+// human to propose first. The proposal lands through the normal
+// topic_proposals realtime subscription, same as a human's would.
+export async function requestAiTopicProposal(battleId: string, topicPool?: string[]): Promise<void> {
+  if (!supabase) return;
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return;
+  try {
+    await fetch("/api/battles/ai-propose-topic", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ battleId, topicPool }),
+    });
+  } catch {
+    // best-effort — if it fails, the human can still propose, or the 60s
+    // timeout fallback covers it
+  }
+}
+
 // ── Challenges ──
 
 export async function sendChallenge(

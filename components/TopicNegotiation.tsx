@@ -8,6 +8,7 @@ import {
   assignRandomTopic,
   subscribeToTopicProposals,
   requestAiTopicResponse,
+  requestAiTopicProposal,
 } from "@/lib/battle";
 import { supabase } from "@/lib/supabase";
 import { DEBATE_TOPICS } from "@/lib/topics";
@@ -56,6 +57,12 @@ export default function TopicNegotiation({
   // Proposal ids already handed to the AI for a decision — guards against
   // asking twice (e.g. a page reload landing on the same pending proposal).
   const aiRequestedRef = useRef<Set<string>>(new Set());
+  // How many times we've asked the AI to suggest its own topic, and
+  // whether a suggestion request is already scheduled/in flight — guards
+  // against piling up timers as `proposals` updates repeatedly.
+  const aiProposalAttemptsRef = useRef(0);
+  const aiProposalScheduledRef = useRef(false);
+  const AI_PROPOSAL_MAX_ATTEMPTS = 4;
   // Captured once, at first render, so the countdown always starts at a
   // full 60 regardless of how long the route/data fetch took to land here.
   const startRef = useRef(Date.now());
@@ -92,6 +99,40 @@ export default function TopicNegotiation({
       }
     }
   }, [proposals, opponent?.isAi, profile.id, battle.id]);
+
+  // The AI opponent shouldn't only ever react to the human's proposals —
+  // it should suggest topics of its own too, so the human always has
+  // something to look at even if they're slow to type. Fires once shortly
+  // after mount, and again each time the AI's last suggestion stops being
+  // pending (rejected/superseded) with no topic locked in yet, up to
+  // AI_PROPOSAL_MAX_ATTEMPTS. Random delay so it doesn't feel robotic and
+  // doesn't race the human's own first message.
+  useEffect(() => {
+    if (!opponent?.isAi || battle.topic || timedOut) return;
+    if (aiProposalScheduledRef.current) return;
+    if (aiProposalAttemptsRef.current >= AI_PROPOSAL_MAX_ATTEMPTS) return;
+
+    const aiHasPending = proposals.some(
+      (p) => p.proposedBy === opponent.id && p.status === "pending"
+    );
+    if (aiHasPending) return;
+
+    aiProposalScheduledRef.current = true;
+    const isFirst = aiProposalAttemptsRef.current === 0;
+    const delayMs = isFirst
+      ? 2000 + Math.random() * 4000
+      : 4000 + Math.random() * 5000;
+    const timer = setTimeout(() => {
+      aiProposalScheduledRef.current = false;
+      aiProposalAttemptsRef.current += 1;
+      requestAiTopicProposal(battle.id, topicPool);
+    }, delayMs);
+    return () => {
+      clearTimeout(timer);
+      aiProposalScheduledRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposals, opponent?.isAi, opponent?.id, battle.id, battle.topic, timedOut]);
 
   // 60-second window measured from the moment this negotiation screen
   // actually mounted on this player's device (not battle.createdAt, which

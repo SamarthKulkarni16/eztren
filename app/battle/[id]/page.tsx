@@ -25,6 +25,11 @@ export default function BattleRoomPage() {
   const [opponent, setOpponent] = useState<Player | null>(null);
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
+  // Set only if we gave up looking for the archived match — shouldn't
+  // normally happen (complete_battle() always creates one), but this
+  // keeps the page from silently freezing on "Taking you to the AI
+  // judge…" forever if it ever does.
+  const [matchLookupFailed, setMatchLookupFailed] = useState(false);
 
   useEffect(() => {
     getMyPlayer().then(setProfile);
@@ -60,6 +65,7 @@ export default function BattleRoomPage() {
 
     let cancelled = false;
     let attempts = 0;
+    setMatchLookupFailed(false);
     const goToMatch = async () => {
       const match = await getMatchByBattleId(battle.id);
       if (cancelled) return;
@@ -68,7 +74,11 @@ export default function BattleRoomPage() {
         return;
       }
       attempts += 1;
-      if (attempts < 20) setTimeout(goToMatch, 500);
+      if (attempts < 20) {
+        setTimeout(goToMatch, 500);
+      } else {
+        setMatchLookupFailed(true);
+      }
     };
 
     goToMatch();
@@ -169,9 +179,23 @@ export default function BattleRoomPage() {
             <p className="font-display text-2xl mb-2">
               {battle.status === "abandoned" ? "Battle timed out." : "Battle ended."}
             </p>
-            <p className="font-data text-[13px] uppercase tracking-wider text-steel">
-              Taking you to the AI judge&hellip;
-            </p>
+            {matchLookupFailed ? (
+              <div>
+                <p className="font-data text-[13px] uppercase tracking-wider text-signal mb-3">
+                  Couldn&rsquo;t find the archived match automatically.
+                </p>
+                <Link
+                  href="/archive"
+                  className="font-data text-[13px] uppercase tracking-wider text-steel hover:text-signal transition-colors"
+                >
+                  Check the archive &rarr;
+                </Link>
+              </div>
+            ) : (
+              <p className="font-data text-[13px] uppercase tracking-wider text-steel">
+                Taking you to the AI judge&hellip;
+              </p>
+            )}
           </div>
         )}
       </div>
