@@ -52,6 +52,7 @@ export default function BattleLobby({
   const [queueSince, setQueueSince] = useState<string | null>(null);
   const [stopPolling, setStopPolling] = useState<(() => void) | null>(null);
   const [dotCount, setDotCount] = useState(1);
+  const [queueElapsedMs, setQueueElapsedMs] = useState(0);
   const aiFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [players, setPlayers] = useState<Player[]>([]);
@@ -153,6 +154,23 @@ export default function BattleLobby({
     }, 500);
     return () => clearInterval(interval);
   }, [inQueue]);
+
+  // Drives the queue fill bar below — only meaningful for text battles,
+  // which are the only format with a guaranteed AI fallback at
+  // AI_FALLBACK_MS (see handleJoinQueue). Ticks off queueSince (the
+  // server's own timestamp) rather than a client-side start time, same
+  // reasoning as the match poll's anchor.
+  useEffect(() => {
+    if (!inQueue || !queueSince || format !== "text") {
+      setQueueElapsedMs(0);
+      return;
+    }
+    const startedAt = new Date(queueSince).getTime();
+    const tick = () => setQueueElapsedMs(Date.now() - startedAt);
+    tick();
+    const interval = setInterval(tick, 200);
+    return () => clearInterval(interval);
+  }, [inQueue, queueSince, format]);
 
   async function handleJoinQueue() {
     if (!profile) return;
@@ -320,6 +338,32 @@ export default function BattleLobby({
                 </>
               )}
             </p>
+            {format === "text" &&
+              (() => {
+                const percent = Math.min(100, (queueElapsedMs / AI_FALLBACK_MS) * 100);
+                const urgent = percent >= 85;
+                return (
+                  <div className="mb-6">
+                    <div className="h-[2px] w-full bg-steel-line overflow-hidden">
+                      <div
+                        className={`h-full transition-[width] duration-200 ease-linear ${
+                          urgent ? "bg-signal" : "bg-bone"
+                        }`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <p
+                      className={`font-data text-[11px] uppercase tracking-wider mt-2 ${
+                        urgent ? "text-signal" : "text-steel"
+                      }`}
+                    >
+                      {percent >= 100
+                        ? "Assigning an AI opponent\u2026"
+                        : `${Math.floor(percent)}% to AI fallback`}
+                    </p>
+                  </div>
+                );
+              })()}
             <button
               onClick={handleLeaveQueue}
               className="font-data text-[13px] uppercase tracking-wider border border-bone px-6 py-3 hover:bg-bone hover:text-void transition-colors"
