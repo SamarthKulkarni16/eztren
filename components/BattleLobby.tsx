@@ -316,7 +316,7 @@ export default function BattleLobby({
                   No one free within a minute, and you&rsquo;ll drop into a
                   live debate with one of Eztren&rsquo;s 100 personalities
                   instead &mdash; each with its own way of arguing. Worth
-                  sticking around just to see which one shows up.
+                  sticking around, you never know which one shows up.
                 </>
               )}
             </p>
