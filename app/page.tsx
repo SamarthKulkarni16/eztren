@@ -33,16 +33,13 @@ export default async function Home() {
             A Debate Sport &mdash; Est. 2026
           </p>
           <h1 className="font-display text-[clamp(2.5rem,6vw,5rem)] leading-[1.03] tracking-tight max-w-4xl">
-            Eztren is the global debate sport, played &amp; ranked online.
-          </h1>
-          <p className="mt-6 text-lg text-steel leading-relaxed max-w-xl italic">
             &ldquo;Wow&hellip; I never thought of it that way.&rdquo;
-          </p>
-          <p className="mt-4 max-w-xl text-lg text-steel leading-relaxed">
+          </h1>
+          <p className="mt-8 max-w-xl text-lg text-steel leading-relaxed">
             That&rsquo;s the win condition. Not the loudest voice or the
             fastest talker &mdash; the argument that moves a judge, and the
-            room, somewhere new. Eztren ranks debaters in letters, not
-            numbers. Climb from the lower alphabet leagues toward becoming{" "}
+            room, somewhere new. Ranked in letters. Climb from
+            the lower alphabet leagues toward becoming{" "}
             <span className="text-signal font-medium">A</span>.
           </p>
           <div className="mt-10 flex flex-wrap items-center gap-4">
