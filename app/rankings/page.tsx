@@ -1,10 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getPlayers } from "@/lib/queries";
 export const dynamic = "force-dynamic";
 
 import { League } from "@/lib/types";
 
-export const metadata = { title: "Rankings" };
+export const metadata: Metadata = {
+  title: "Rankings",
+  description:
+    "Eztren public rankings — debaters ranked by letters, from Z toward A through the alphabet leagues. See who sits at the top of the debate sport.",
+  alternates: { canonical: "https://eztren.xyz/rankings" },
+};
 
 const leagueOrder: League[] = [
   "One Alphabet League",

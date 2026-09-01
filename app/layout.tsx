@@ -23,8 +23,16 @@ export const metadata: Metadata = {
     "debate ranking",
     "ranked debate battles",
     "One Alphabet League",
+    "debate game",
+    "debate competition",
+    "letter ranking debate",
+    "eztren.xyz",
   ],
   applicationName: "Eztren",
+  authors: [{ name: "Eztren", url: SITE_URL }],
+  creator: "Eztren",
+  publisher: "Eztren",
+  category: "Sports & Recreation",
   alternates: {
     canonical: SITE_URL,
   },
@@ -37,18 +45,18 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "/favicon-512.png",
-        width: 512,
-        height: 512,
-        alt: "Eztren — A Debate Sport",
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "EZT REN — A global debate sport, ranked by letters, not numbers. eztren.xyz",
       },
     ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/favicon-512.png"],
+    images: ["/og-image.png"],
   },
   icons: {
     icon: [
@@ -61,24 +69,44 @@ export const metadata: Metadata = {
   },
 };
 
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  name: "Eztren",
-  alternateName: "One Alphabet",
-  url: SITE_URL,
-  description: DESCRIPTION,
-  applicationCategory: "SportsApplication",
-  operatingSystem: "Any",
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
+const jsonLd = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: "Eztren",
+    alternateName: "One Alphabet",
+    url: SITE_URL,
+    description: DESCRIPTION,
+    applicationCategory: "SportsApplication",
+    operatingSystem: "Any",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+    sameAs: ["https://github.com/SamarthKulkarni16/eztren"],
   },
-  sameAs: [
-    "https://github.com/SamarthKulkarni16/eztren",
-  ],
-};
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Eztren",
+    alternateName: "Eztren Debate Sport",
+    url: SITE_URL,
+    description: DESCRIPTION,
+    inLanguage: "en",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "SportsOrganization",
+    name: "Eztren",
+    alternateName: "One Alphabet League",
+    url: SITE_URL,
+    description:
+      "Eztren is a global debate sport played and ranked online. Players argue live, judged in real time, and ranked by letters from Z toward A.",
+    sport: "Debate",
+    sameAs: ["https://github.com/SamarthKulkarni16/eztren"],
+  },
+];
 
 export default function RootLayout({
   children,

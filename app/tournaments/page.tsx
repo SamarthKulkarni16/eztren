@@ -1,8 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getTournaments, getActivePlayerCount } from "@/lib/queries";
 import { FLAGSHIP_LEAGUES_THRESHOLD, isFlagshipLive, isFlagshipTournament } from "@/lib/config";
 
-export const metadata = { title: "Tournaments" };
+export const metadata: Metadata = {
+  title: "Tournaments",
+  description:
+    "Eztren debate tournaments — flagship One Alphabet League and alphabet league competitions, played and ranked live at eztren.xyz.",
+  alternates: { canonical: "https://eztren.xyz/tournaments" },
+};
 export const dynamic = "force-dynamic";
 
 const statusColor: Record<string, string> = {

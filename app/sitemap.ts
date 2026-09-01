@@ -10,12 +10,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/rankings`, lastModified: now, priority: 0.9 },
     { url: `${base}/join`, lastModified: now, priority: 0.9 },
     { url: `${base}/battle`, lastModified: now, priority: 0.9 },
-    { url: `${base}/players`, lastModified: now, priority: 0.8 },
     { url: `${base}/tournaments`, lastModified: now, priority: 0.8 },
-    { url: `${base}/matches`, lastModified: now, priority: 0.7 },
-    { url: `${base}/watch`, lastModified: now, priority: 0.7 },
-    { url: `${base}/archive`, lastModified: now, priority: 0.6 },
+    { url: `${base}/watch`, lastModified: now, priority: 0.8 },
+    { url: `${base}/archive`, lastModified: now, priority: 0.7 },
     { url: `${base}/history`, lastModified: now, priority: 0.6 },
     { url: `${base}/constitution`, lastModified: now, priority: 0.5 },
+    { url: `${base}/html-sitemap`, lastModified: now, priority: 0.3 },
   ]
 }

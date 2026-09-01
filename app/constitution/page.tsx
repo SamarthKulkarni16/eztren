@@ -1,4 +1,11 @@
-export const metadata = { title: "Constitution" };
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Constitution",
+  description:
+    "The Eztren constitution — the rules of the global debate sport: ranking by letters, match structure, judging, and refereeing.",
+  alternates: { canonical: "https://eztren.xyz/constitution" },
+};
 
 const sections = [
   {
